@@ -19,7 +19,7 @@
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│  InkWell                     [ ✍️ 1st: Writer Mode | 📚 2nd: Reading Library ]   │
+│  InkWell                     [1st: Writer Mode | 2nd: Reading Library] │
 ├───────────────────────────────────┬────────────────────────────────────┤
 │   Part 1: Novel Studio            │   Part 2: eBook Reading Library    │
 │   ────────────────────            │   ─────────────────────────────    │
