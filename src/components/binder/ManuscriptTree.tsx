@@ -9,7 +9,7 @@ import {
   Plus, 
   Compass, 
   BookMarked,
-  Sparkles
+  Trash2
 } from 'lucide-react';
 
 interface ManuscriptTreeProps {
@@ -17,6 +17,8 @@ interface ManuscriptTreeProps {
   activeSceneId: string;
   onSelectScene: (sceneId: string) => void;
   onAddScene: (parentFolderId: string) => void;
+  onDeleteScene: (sceneId: string) => void;
+  onDeleteFolder: (folderId: string) => void;
   onOpenCodex: () => void;
   totalWords: number;
   targetWords: number;
@@ -27,12 +29,14 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
   activeSceneId,
   onSelectScene,
   onAddScene,
+  onDeleteScene,
+  onDeleteFolder,
   onOpenCodex,
   totalWords,
   targetWords,
 }) => {
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({
-    'part-2': true, // collapsed by default
+    'part-2': true,
   });
 
   const toggleFolder = (folderId: string, e: React.MouseEvent) => {
@@ -45,10 +49,25 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
 
   const percentProgress = Math.min(100, Math.round((totalWords / targetWords) * 100));
 
+  const handleDeleteFolderClick = (e: React.MouseEvent, folder: FolderItem) => {
+    e.stopPropagation();
+    const confirmed = window.confirm(`Delete folder "${folder.title}" and all its contents?`);
+    if (confirmed) {
+      onDeleteFolder(folder.id);
+    }
+  };
+
+  const handleDeleteSceneClick = (e: React.MouseEvent, scene: SceneItem) => {
+    e.stopPropagation();
+    const confirmed = window.confirm(`Delete scene "${scene.title}"?`);
+    if (confirmed) {
+      onDeleteScene(scene.id);
+    }
+  };
+
   const renderItem = (item: FolderItem | SceneItem, depth: number = 0) => {
     if (item.type === 'folder') {
       const isCollapsed = !!collapsedFolders[item.id];
-      // calculate folder word sum
       const getFolderWords = (f: FolderItem): number => {
         let sum = 0;
         for (const child of f.children) {
@@ -63,6 +82,7 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
         <div key={item.id} style={{ display: 'flex', flexDirection: 'column' }}>
           <div
             onClick={(e) => toggleFolder(item.id, e)}
+            className="binder-folder-row"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -92,9 +112,9 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
               </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               {fWords > 0 && depth > 0 && (
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '2px' }}>
                   {fWords.toLocaleString()}
                 </span>
               )}
@@ -116,6 +136,24 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
               >
                 <Plus size={12} />
               </button>
+
+              {depth > 0 && (
+                <button
+                  onClick={(e) => handleDeleteFolderClick(e, item)}
+                  title="Delete Folder"
+                  style={{
+                    padding: '2px',
+                    borderRadius: '3px',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = '#dc2626')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                >
+                  <Trash2 size={12} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -151,9 +189,13 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
         }}
         onMouseEnter={(e) => {
           if (!isActive) e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+          const delBtn = e.currentTarget.querySelector('.scene-delete-btn') as HTMLElement;
+          if (delBtn) delBtn.style.opacity = '1';
         }}
         onMouseLeave={(e) => {
           if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
+          const delBtn = e.currentTarget.querySelector('.scene-delete-btn') as HTMLElement;
+          if (delBtn) delBtn.style.opacity = '0';
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
@@ -163,16 +205,37 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
           </span>
         </div>
 
-        <span style={{
-          fontSize: '11px',
-          fontFamily: 'var(--font-mono)',
-          color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-          backgroundColor: isActive ? 'var(--bg-surface)' : 'transparent',
-          padding: '1px 5px',
-          borderRadius: '4px',
-        }}>
-          {item.wordCount.toLocaleString()}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{
+            fontSize: '11px',
+            fontFamily: 'var(--font-mono)',
+            color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+            backgroundColor: isActive ? 'var(--bg-surface)' : 'transparent',
+            padding: '1px 5px',
+            borderRadius: '4px',
+          }}>
+            {item.wordCount.toLocaleString()}
+          </span>
+
+          <button
+            className="scene-delete-btn"
+            onClick={(e) => handleDeleteSceneClick(e, item)}
+            title="Delete Scene"
+            style={{
+              padding: '2px',
+              borderRadius: '3px',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              opacity: 0,
+              transition: 'opacity 0.15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#dc2626')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
       </div>
     );
   };

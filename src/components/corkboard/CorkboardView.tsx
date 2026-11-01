@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { SceneItem, FolderItem, SceneStatus } from '../../types/project';
-import { Filter, Plus, GripVertical, CheckCircle2 } from 'lucide-react';
+import { Filter, Plus, GripVertical, CheckCircle2, Trash2 } from 'lucide-react';
 
 interface CorkboardViewProps {
   currentFolder: FolderItem;
   onSelectScene: (sceneId: string) => void;
   onUpdateSceneSummary: (sceneId: string, summary: string) => void;
   onAddScene: (folderId: string) => void;
+  onDeleteScene: (sceneId: string) => void;
   onReorderScenes: (reorderedScenes: SceneItem[]) => void;
 }
 
@@ -15,6 +16,7 @@ export const CorkboardView: React.FC<CorkboardViewProps> = ({
   onSelectScene,
   onUpdateSceneSummary,
   onAddScene,
+  onDeleteScene,
   onReorderScenes,
 }) => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -76,6 +78,14 @@ export const CorkboardView: React.FC<CorkboardViewProps> = ({
     }
 
     setDraggedSceneId(null);
+  };
+
+  const handleDeleteCardClick = (e: React.MouseEvent, scene: SceneItem) => {
+    e.stopPropagation();
+    const confirmed = window.confirm(`Delete scene "${scene.title}"?`);
+    if (confirmed) {
+      onDeleteScene(scene.id);
+    }
   };
 
   return (
@@ -197,14 +207,19 @@ export const CorkboardView: React.FC<CorkboardViewProps> = ({
                   opacity: isDragging ? 0.4 : 1,
                   transition: 'box-shadow var(--transition-fast), border-color var(--transition-fast)',
                   minHeight: '180px',
+                  position: 'relative',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.boxShadow = 'var(--shadow-md)';
                   e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                  const trash = e.currentTarget.querySelector('.card-trash-btn') as HTMLElement;
+                  if (trash) trash.style.opacity = '1';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
                   e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                  const trash = e.currentTarget.querySelector('.card-trash-btn') as HTMLElement;
+                  if (trash) trash.style.opacity = '0';
                 }}
               >
                 <div>
@@ -214,10 +229,36 @@ export const CorkboardView: React.FC<CorkboardViewProps> = ({
                       fontFamily: 'var(--font-serif)',
                       fontWeight: 600,
                       color: 'var(--text-primary)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      paddingRight: '8px',
                     }}>
                       {scene.title}
                     </h3>
-                    <GripVertical size={14} color="var(--text-muted)" />
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <button
+                        className="card-trash-btn"
+                        onClick={(e) => handleDeleteCardClick(e, scene)}
+                        title="Delete Scene"
+                        style={{
+                          padding: '3px',
+                          borderRadius: '4px',
+                          color: '#dc2626',
+                          opacity: 0,
+                          transition: 'opacity 0.15s ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+
+                      <GripVertical size={14} color="var(--text-muted)" />
+                    </div>
                   </div>
 
                   <p

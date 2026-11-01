@@ -69,7 +69,6 @@ export const App: React.FC = () => {
     if (activeProject) {
       const scenes = ProjectStorage.getAllScenes(activeProject.manuscript);
       if (scenes.length > 0) {
-        // If activeSceneId is not in this project, set to first scene
         const found = ProjectStorage.findScene(activeProject.manuscript, activeSceneId);
         if (!found) {
           setActiveSceneId(scenes[0].id);
@@ -128,7 +127,6 @@ export const App: React.FC = () => {
   // Delete project
   const handleDeleteProject = (projectId: string) => {
     if (projects.length <= 1) {
-      // Create fresh default project if deleting last
       const replacement = ProjectStorage.createProject({ title: 'New Novel' });
       setProjects([replacement]);
       setActiveProjectId(replacement.settings.id);
@@ -141,6 +139,98 @@ export const App: React.FC = () => {
     if (activeProjectId === projectId) {
       setActiveProjectId(remaining[0].settings.id);
     }
+  };
+
+  // Delete scene
+  const handleDeleteScene = (sceneId: string) => {
+    updateActiveProject((prev) => {
+      const filterChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
+        return items
+          .filter((it) => it.id !== sceneId)
+          .map((it) => {
+            if (it.type === 'folder') {
+              return {
+                ...it,
+                order: it.order.filter((id) => id !== sceneId),
+                children: filterChildren(it.children),
+              };
+            }
+            return it;
+          });
+      };
+
+      const updatedManuscript = prev.manuscript.map((f) => ({
+        ...f,
+        children: filterChildren(f.children),
+      }));
+
+      // Pick next scene if current was deleted
+      const remainingScenes = ProjectStorage.getAllScenes(updatedManuscript);
+      if (activeSceneId === sceneId && remainingScenes.length > 0) {
+        setActiveSceneId(remainingScenes[0].id);
+      }
+
+      return {
+        ...prev,
+        manuscript: updatedManuscript,
+      };
+    });
+  };
+
+  // Delete folder
+  const handleDeleteFolder = (folderId: string) => {
+    updateActiveProject((prev) => {
+      const filterChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
+        return items
+          .filter((it) => it.id !== folderId)
+          .map((it) => {
+            if (it.type === 'folder') {
+              return {
+                ...it,
+                order: it.order.filter((id) => id !== folderId),
+                children: filterChildren(it.children),
+              };
+            }
+            return it;
+          });
+      };
+
+      const updatedManuscript = prev.manuscript
+        .filter((f) => f.id !== folderId)
+        .map((f) => ({
+          ...f,
+          children: filterChildren(f.children),
+        }));
+
+      const remainingScenes = ProjectStorage.getAllScenes(updatedManuscript);
+      if (remainingScenes.length > 0) {
+        const stillExists = remainingScenes.some((s) => s.id === activeSceneId);
+        if (!stillExists) {
+          setActiveSceneId(remainingScenes[0].id);
+        }
+      }
+
+      return {
+        ...prev,
+        manuscript: updatedManuscript,
+      };
+    });
+  };
+
+  // Delete lore entry
+  const handleDeleteLore = (loreId: string) => {
+    updateActiveProject((prev) => ({
+      ...prev,
+      lore: prev.lore.filter((l) => l.id !== loreId),
+    }));
+  };
+
+  // Delete timeline event
+  const handleDeleteEvent = (eventId: string) => {
+    updateActiveProject((prev) => ({
+      ...prev,
+      timeline: prev.timeline.filter((e) => e.id !== eventId),
+    }));
   };
 
   // Active scene
@@ -491,6 +581,7 @@ export const App: React.FC = () => {
         onSelectProject={handleSelectProject}
         onOpenProjectHub={() => setIsProjectHubOpen(true)}
         onOpenNewProject={() => setIsNewProjectOpen(true)}
+        onDeleteProject={handleDeleteProject}
       />
 
       {/* Main Workspace Body */}
@@ -502,6 +593,8 @@ export const App: React.FC = () => {
             activeSceneId={activeSceneId}
             onSelectScene={setActiveSceneId}
             onAddScene={handleAddScene}
+            onDeleteScene={handleDeleteScene}
+            onDeleteFolder={handleDeleteFolder}
             onOpenCodex={() => setCurrentView('codex')}
             totalWords={totalWords}
             targetWords={activeProject.settings.targetWords}
@@ -544,6 +637,7 @@ export const App: React.FC = () => {
                   setSelectedCodexId(entry.id);
                   setCurrentView('codex');
                 }}
+                onDeleteScene={handleDeleteScene}
               />
             )}
           </>
@@ -558,6 +652,7 @@ export const App: React.FC = () => {
             }}
             onUpdateSceneSummary={handleUpdateSceneSummary}
             onAddScene={handleAddScene}
+            onDeleteScene={handleDeleteScene}
             onReorderScenes={handleReorderScenes}
           />
         )}
@@ -570,6 +665,7 @@ export const App: React.FC = () => {
               setCurrentView('write');
             }}
             onAddEvent={() => {}}
+            onDeleteEvent={handleDeleteEvent}
           />
         )}
 
@@ -579,6 +675,7 @@ export const App: React.FC = () => {
             initialSelectedId={selectedCodexId}
             onUpdateLore={handleUpdateLore}
             onAddLore={handleAddLore}
+            onDeleteLore={handleDeleteLore}
             onOpenScene={(id) => {
               setActiveSceneId(id);
               setCurrentView('write');

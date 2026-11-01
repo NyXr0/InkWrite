@@ -8,7 +8,6 @@ import {
   Trash2, 
   ArrowRight, 
   CheckCircle, 
-  Clock, 
   Flame, 
   Calendar,
   AlertTriangle 
@@ -190,27 +189,34 @@ export const ProjectHubModal: React.FC<ProjectHubModalProps> = ({
                     )}
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions: Delete & Open */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {projects.length > 1 && (
-                      <button
-                        onClick={() => setProjectToDelete(proj)}
-                        title="Delete project"
-                        style={{
-                          padding: '6px 8px',
-                          borderRadius: '6px',
-                          color: '#dc2626',
-                          backgroundColor: 'transparent',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          fontSize: '12px',
-                        }}
-                      >
-                        <Trash2 size={14} />
-                        <span>Delete</span>
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setProjectToDelete(proj)}
+                      title="Delete project"
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        color: '#dc2626',
+                        backgroundColor: 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '12px',
+                        border: '1px solid transparent',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#fee2e2';
+                        e.currentTarget.style.borderColor = '#fecaca';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.borderColor = 'transparent';
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      <span>Delete</span>
+                    </button>
 
                     <button
                       onClick={() => {
@@ -340,6 +346,11 @@ export const ProjectHubModal: React.FC<ProjectHubModalProps> = ({
 
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5', marginBottom: '20px' }}>
               Are you sure you want to delete <strong>"{projectToDelete.settings.title}"</strong>? All scenes, story bible entries, and snapshots will be permanently removed.
+              {projects.length === 1 && (
+                <span style={{ display: 'block', marginTop: '8px', color: '#b91c1c' }}>
+                  Note: This is your only project. Deleting it will create a fresh blank novel project.
+                </span>
+              )}
             </p>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>

@@ -7,8 +7,7 @@ import {
   Sparkles, 
   Plus, 
   Search, 
-  BookOpen, 
-  Link2 
+  Trash2 
 } from 'lucide-react';
 
 interface CodexViewProps {
@@ -16,6 +15,7 @@ interface CodexViewProps {
   initialSelectedId?: string;
   onUpdateLore: (updated: LoreEntry) => void;
   onAddLore: (category: LoreCategory) => void;
+  onDeleteLore: (loreId: string) => void;
   onOpenScene: (sceneId: string) => void;
 }
 
@@ -24,6 +24,7 @@ export const CodexView: React.FC<CodexViewProps> = ({
   initialSelectedId,
   onUpdateLore,
   onAddLore,
+  onDeleteLore,
   onOpenScene,
 }) => {
   const [selectedId, setSelectedId] = useState<string>(initialSelectedId || loreList[0]?.id || '');
@@ -50,6 +51,20 @@ export const CodexView: React.FC<CodexViewProps> = ({
       case 'item':
       default:
         return <Sparkles size={14} color="#eab308" />;
+    }
+  };
+
+  const handleDeleteEntry = (e: React.MouseEvent, lore: LoreEntry) => {
+    e.stopPropagation();
+    const confirmed = window.confirm(`Delete codex entry "${lore.name}"?`);
+    if (confirmed) {
+      onDeleteLore(lore.id);
+      if (activeEntry && activeEntry.id === lore.id) {
+        const remaining = loreList.filter((l) => l.id !== lore.id);
+        if (remaining.length > 0) {
+          setSelectedId(remaining[0].id);
+        }
+      }
     }
   };
 
@@ -162,7 +177,7 @@ export const CodexView: React.FC<CodexViewProps> = ({
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '10px',
+                  justifyContent: 'space-between',
                   padding: '8px 10px',
                   borderRadius: '6px',
                   cursor: 'pointer',
@@ -170,42 +185,71 @@ export const CodexView: React.FC<CodexViewProps> = ({
                   borderLeft: isSelected ? '3px solid var(--accent-primary)' : '3px solid transparent',
                   marginBottom: '2px',
                 }}
+                onMouseEnter={(e) => {
+                  const del = e.currentTarget.querySelector('.lore-trash-btn') as HTMLElement;
+                  if (del) del.style.opacity = '1';
+                }}
+                onMouseLeave={(e) => {
+                  const del = e.currentTarget.querySelector('.lore-trash-btn') as HTMLElement;
+                  if (del) del.style.opacity = '0';
+                }}
               >
-                <div style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '5px',
-                  backgroundColor: 'var(--bg-surface)',
-                  border: '1px solid var(--border-subtle)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}>
-                  {getCategoryIcon(item.category)}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                  <div style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '5px',
+                    backgroundColor: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    {getCategoryIcon(item.category)}
+                  </div>
+
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{
+                      fontSize: '13px',
+                      fontWeight: isSelected ? 600 : 500,
+                      color: 'var(--text-primary)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}>
+                      {item.name}
+                    </div>
+                    <div style={{
+                      fontSize: '11px',
+                      color: 'var(--text-muted)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}>
+                      {item.role || item.category}
+                    </div>
+                  </div>
                 </div>
 
-                <div style={{ overflow: 'hidden' }}>
-                  <div style={{
-                    fontSize: '13px',
-                    fontWeight: isSelected ? 600 : 500,
-                    color: 'var(--text-primary)',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}>
-                    {item.name}
-                  </div>
-                  <div style={{
-                    fontSize: '11px',
-                    color: 'var(--text-muted)',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}>
-                    {item.role || item.category}
-                  </div>
-                </div>
+                <button
+                  className="lore-trash-btn"
+                  onClick={(e) => handleDeleteEntry(e, item)}
+                  title="Delete entry"
+                  style={{
+                    padding: '4px',
+                    borderRadius: '4px',
+                    color: '#dc2626',
+                    opacity: 0,
+                    transition: 'opacity 0.15s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                >
+                  <Trash2 size={13} />
+                </button>
               </div>
             );
           })}
@@ -262,6 +306,26 @@ export const CodexView: React.FC<CodexViewProps> = ({
                   </code>
                 </div>
               </div>
+
+              <button
+                onClick={(e) => handleDeleteEntry(e, activeEntry)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  color: '#dc2626',
+                  border: '1px solid #fecaca',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+              >
+                <Trash2 size={13} />
+                <span>Delete Entry</span>
+              </button>
             </div>
 
             {/* Summary field */}

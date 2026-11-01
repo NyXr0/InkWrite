@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { TimelineEvent } from '../../types/project';
-import { Calendar, Plus, Clock, AlertCircle, User, ArrowRight } from 'lucide-react';
+import { Calendar, Plus, Clock, AlertCircle, User, ArrowRight, Trash2 } from 'lucide-react';
 
 interface TimelineViewProps {
   events: TimelineEvent[];
   onSelectScene: (sceneId: string) => void;
   onAddEvent: () => void;
+  onDeleteEvent: (eventId: string) => void;
 }
 
 export const TimelineView: React.FC<TimelineViewProps> = ({
   events,
   onSelectScene,
   onAddEvent,
+  onDeleteEvent,
 }) => {
   const [selectedLane, setSelectedLane] = useState<string>('all');
 
@@ -21,6 +23,14 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     if (selectedLane !== 'all' && e.lane !== selectedLane) return false;
     return true;
   });
+
+  const handleDeleteEventClick = (e: React.MouseEvent, evt: TimelineEvent) => {
+    e.stopPropagation();
+    const confirmed = window.confirm(`Delete timeline event "${evt.title}"?`);
+    if (confirmed) {
+      onDeleteEvent(evt.id);
+    }
+  };
 
   return (
     <div style={{
@@ -190,22 +200,40 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                       </span>
                     </div>
 
-                    {evt.sceneId && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {evt.sceneId && (
+                        <button
+                          onClick={() => onSelectScene(evt.sceneId!)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '11px',
+                            color: 'var(--accent-primary)',
+                            fontWeight: 500,
+                          }}
+                        >
+                          <span>Open scene</span>
+                          <ArrowRight size={12} />
+                        </button>
+                      )}
+
                       <button
-                        onClick={() => onSelectScene(evt.sceneId!)}
+                        onClick={(e) => handleDeleteEventClick(e, evt)}
+                        title="Delete event"
                         style={{
+                          padding: '3px',
+                          borderRadius: '4px',
+                          color: '#dc2626',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '4px',
-                          fontSize: '11px',
-                          color: 'var(--accent-primary)',
-                          fontWeight: 500,
                         }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
-                        <span>Open scene</span>
-                        <ArrowRight size={12} />
+                        <Trash2 size={13} />
                       </button>
-                    )}
+                    </div>
                   </div>
 
                   <h3 style={{

@@ -20,6 +20,7 @@ interface InspectorPanelProps {
   onAddComment: (commentText: string) => void;
   onResolveComment: (commentId: string) => void;
   onOpenCodexEntry: (lore: LoreEntry) => void;
+  onDeleteScene: (sceneId: string) => void;
 }
 
 export const InspectorPanel: React.FC<InspectorPanelProps> = ({
@@ -30,6 +31,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
   onAddComment,
   onResolveComment,
   onOpenCodexEntry,
+  onDeleteScene,
 }) => {
   const [newComment, setNewComment] = useState('');
   const [isAddingComment, setIsAddingComment] = useState(false);
@@ -71,6 +73,13 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
     onAddComment(newComment.trim());
     setNewComment('');
     setIsAddingComment(false);
+  };
+
+  const handleDeleteCurrentScene = () => {
+    const confirmed = window.confirm(`Delete scene "${scene.title}"? This cannot be undone.`);
+    if (confirmed) {
+      onDeleteScene(scene.id);
+    }
   };
 
   return (
@@ -294,7 +303,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
         </div>
 
         {/* Comments Section */}
-        <div>
+        <div style={{ marginBottom: '24px' }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -429,6 +438,37 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
               ))
             )}
           </div>
+        </div>
+
+        {/* Delete Scene Action */}
+        <div style={{
+          paddingTop: '16px',
+          borderTop: '1px solid var(--border-subtle)',
+        }}>
+          <button
+            onClick={handleDeleteCurrentScene}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              padding: '7px 12px',
+              borderRadius: '6px',
+              backgroundColor: 'transparent',
+              border: '1px solid #fecaca',
+              color: '#dc2626',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'background var(--transition-fast)',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+          >
+            <Trash2 size={13} />
+            <span>Delete Scene</span>
+          </button>
         </div>
       </div>
     </aside>

@@ -16,7 +16,8 @@ import {
   ChevronDown,
   Plus,
   FolderOpen,
-  Check
+  Check,
+  Trash2
 } from 'lucide-react';
 
 interface TopNavBarProps {
@@ -32,6 +33,7 @@ interface TopNavBarProps {
   onSelectProject: (projectId: string) => void;
   onOpenProjectHub: () => void;
   onOpenNewProject: () => void;
+  onDeleteProject: (projectId: string) => void;
 }
 
 export const TopNavBar: React.FC<TopNavBarProps> = ({
@@ -47,6 +49,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
   onSelectProject,
   onOpenProjectHub,
   onOpenNewProject,
+  onDeleteProject,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -60,6 +63,14 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleDeleteClick = (e: React.MouseEvent, proj: ProjectData) => {
+    e.stopPropagation();
+    const confirmed = window.confirm(`Delete novel project "${proj.settings.title}"? This cannot be undone.`);
+    if (confirmed) {
+      onDeleteProject(proj.settings.id);
+    }
+  };
 
   return (
     <header style={{
@@ -121,7 +132,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
                 top: '100%',
                 left: 0,
                 marginTop: '4px',
-                width: '260px',
+                width: '280px',
                 backgroundColor: 'var(--bg-popover)',
                 borderRadius: '8px',
                 border: '1px solid var(--border-subtle)',
@@ -137,11 +148,14 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
                   textTransform: 'uppercase',
                   color: 'var(--text-muted)',
                   borderBottom: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                 }}>
-                  Your Projects ({projects.length})
+                  <span>Your Projects ({projects.length})</span>
                 </div>
 
-                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
                   {projects.map((proj) => {
                     const isSelected = proj.settings.id === activeProjectId;
                     const words = ProjectStorage.countTotalWords(proj.manuscript);
@@ -162,13 +176,14 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
                           backgroundColor: isSelected ? 'var(--bg-active)' : 'transparent',
                           fontSize: '13px',
                           color: 'var(--text-primary)',
+                          borderLeft: isSelected ? '3px solid var(--accent-primary)' : '3px solid transparent',
                         }}
                         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.backgroundColor = isSelected ? 'var(--bg-active)' : 'transparent';
                         }}
                       >
-                        <div style={{ overflow: 'hidden' }}>
+                        <div style={{ overflow: 'hidden', flex: 1, marginRight: '8px' }}>
                           <div style={{ fontWeight: isSelected ? 600 : 500, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                             {proj.settings.title}
                           </div>
@@ -177,7 +192,34 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
                           </div>
                         </div>
 
-                        {isSelected && <Check size={14} color="var(--accent-primary)" />}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {isSelected && <Check size={14} color="var(--accent-primary)" />}
+
+                          {/* Delete Project Action */}
+                          <button
+                            onClick={(e) => handleDeleteClick(e, proj)}
+                            title="Delete project"
+                            style={{
+                              padding: '4px',
+                              borderRadius: '4px',
+                              color: 'var(--text-muted)',
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.stopPropagation();
+                              e.currentTarget.style.color = '#dc2626';
+                              e.currentTarget.style.backgroundColor = '#fee2e2';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.stopPropagation();
+                              e.currentTarget.style.color = 'var(--text-muted)';
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
