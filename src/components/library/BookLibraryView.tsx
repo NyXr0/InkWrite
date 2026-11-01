@@ -31,7 +31,9 @@ import {
   FileCode,
   BookMarked,
   Sparkles,
-  Download
+  Download,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 interface BookLibraryViewProps {
@@ -81,6 +83,10 @@ export const BookLibraryView: React.FC<BookLibraryViewProps> = ({
   const [dropCaps, setDropCaps] = useState<boolean>(true);
 
   const readerContainerRef = useRef<HTMLDivElement>(null);
+  const pageContainerRef = useRef<HTMLDivElement>(null);
+  const [pageLayoutMode, setPageLayoutMode] = useState<'single' | 'dual' | 'scroll'>('dual');
+  const [currentSpread, setCurrentSpread] = useState<number>(1);
+  const [totalSpreads, setTotalSpreads] = useState<number>(1);
 
   // Load books from IndexedDB
   const loadBooks = async () => {
@@ -209,6 +215,118 @@ export const BookLibraryView: React.FC<BookLibraryViewProps> = ({
   }, [selectedBook, epubChapterIndex]);
 
   // Fullscreen helper
+  const scrollToSpread = (spreadNum: number, smooth = true) => {
+    const el = pageContainerRef.current;
+    if (!el) return;
+    const gap = pageLayoutMode === 'dual' ? 56 : 0;
+    const clamped = Math.min(totalSpreads, Math.max(1, spreadNum));
+    setCurrentSpread(clamped);
+    const targetX = (clamped - 1) * (el.clientWidth + gap);
+    el.scrollTo({ left: targetX, behavior: smooth ? 'smooth' : 'auto' });
+  };
+
+  const goToNextPage = () => {
+    if (pageLayoutMode === 'scroll') {
+      readerContainerRef.current?.scrollBy({ top: window.innerHeight * 0.75, behavior: 'smooth' });
+      return;
+    }
+
+    if (currentSpread < totalSpreads) {
+      scrollToSpread(currentSpread + 1);
+    } else {
+      if (selectedBook && selectedBook.epubChapters && epubChapterIndex < selectedBook.epubChapters.length - 1) {
+        goToEpubChapter(epubChapterIndex + 1);
+        setCurrentSpread(1);
+      }
+    }
+  };
+
+  const goToPrevPage = () => {
+    if (pageLayoutMode === 'scroll') {
+      readerContainerRef.current?.scrollBy({ top: -window.innerHeight * 0.75, behavior: 'smooth' });
+      return;
+    }
+
+    if (currentSpread > 1) {
+      scrollToSpread(currentSpread - 1);
+    } else {
+      if (selectedBook && selectedBook.epubChapters && epubChapterIndex > 0) {
+        goToEpubChapter(epubChapterIndex - 1);
+        setCurrentSpread(1);
+      }
+    }
+  };
+
+  // Recalculate spreads on resize, layout switch, font changes
+  useEffect(() => {
+    const el = pageContainerRef.current;
+    if (!el || pageLayoutMode === 'scroll') return;
+
+    const gap = pageLayoutMode === 'dual' ? 56 : 0;
+    const recalculate = () => {
+      if (!el || el.clientWidth <= 0) return;
+      const spreads = Math.max(1, Math.round((el.scrollWidth + gap) / (el.clientWidth + gap)));
+      setTotalSpreads(spreads);
+      setCurrentSpread((prev) => Math.min(spreads, Math.max(1, prev)));
+    };
+
+    recalculate();
+    const timer = setTimeout(recalculate, 80);
+
+    const observer = new ResizeObserver(() => {
+      recalculate();
+    });
+    observer.observe(el);
+
+    window.addEventListener('resize', recalculate);
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+      window.removeEventListener('resize', recalculate);
+    };
+  }, [pageLayoutMode, fontSize, lineHeight, maxWidth, epubChapterIndex, selectedBook, isContinuousMode]);
+
+  // Reset spread position on chapter change
+  useEffect(() => {
+    if (pageLayoutMode !== 'scroll') {
+      setCurrentSpread(1);
+      if (pageContainerRef.current) {
+        pageContainerRef.current.scrollLeft = 0;
+      }
+    }
+  }, [epubChapterIndex, selectedBook, pageLayoutMode]);
+
+  // Keyboard navigation for reader (Arrow keys, Esc, Space, PageUp/Down)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedBook) return;
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.getAttribute('contenteditable') === 'true')) {
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeBook();
+      } else if (e.key === 'ArrowRight' || e.key === 'PageDown' || (e.key === ' ' && !e.shiftKey)) {
+        e.preventDefault();
+        goToNextPage();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp' || (e.key === ' ' && e.shiftKey)) {
+        e.preventDefault();
+        goToPrevPage();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    pageLayoutMode,
+    currentSpread,
+    totalSpreads,
+    selectedBook,
+    epubChapterIndex,
+  ]);
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
@@ -399,6 +517,80 @@ export const BookLibraryView: React.FC<BookLibraryViewProps> = ({
 
           {/* Right: Mode Toggle, Settings, Fullscreen */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Mode Selector: 1-Page | 2-Page | Scroll */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: 'var(--bg-surface)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '7px',
+              padding: '2px',
+              gap: '2px',
+            }}>
+              <button
+                onClick={() => setPageLayoutMode('single')}
+                title="Single Page Mode (flip pages with Left/Right Arrow keys)"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 8px',
+                  borderRadius: '5px',
+                  fontSize: '11px',
+                  fontWeight: pageLayoutMode === 'single' ? 600 : 400,
+                  backgroundColor: pageLayoutMode === 'single' ? 'var(--accent-pill)' : 'transparent',
+                  color: pageLayoutMode === 'single' ? 'var(--accent-pill-text)' : 'var(--text-secondary)',
+                  border: pageLayoutMode === 'single' ? '1px solid var(--accent-primary)' : '1px solid transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                <FileText size={12} />
+                <span>1-Page</span>
+              </button>
+
+              <button
+                onClick={() => setPageLayoutMode('dual')}
+                title="Dual Page Spread Mode (Book 2 Pages side-by-side, flip with Arrow keys)"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 8px',
+                  borderRadius: '5px',
+                  fontSize: '11px',
+                  fontWeight: pageLayoutMode === 'dual' ? 600 : 400,
+                  backgroundColor: pageLayoutMode === 'dual' ? 'var(--accent-pill)' : 'transparent',
+                  color: pageLayoutMode === 'dual' ? 'var(--accent-pill-text)' : 'var(--text-secondary)',
+                  border: pageLayoutMode === 'dual' ? '1px solid var(--accent-primary)' : '1px solid transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                <BookOpen size={12} />
+                <span>2-Page</span>
+              </button>
+
+              <button
+                onClick={() => setPageLayoutMode('scroll')}
+                title="Continuous Scroll Mode (vertical scrolling)"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 8px',
+                  borderRadius: '5px',
+                  fontSize: '11px',
+                  fontWeight: pageLayoutMode === 'scroll' ? 600 : 400,
+                  backgroundColor: pageLayoutMode === 'scroll' ? 'var(--accent-pill)' : 'transparent',
+                  color: pageLayoutMode === 'scroll' ? 'var(--accent-pill-text)' : 'var(--text-secondary)',
+                  border: pageLayoutMode === 'scroll' ? '1px solid var(--accent-primary)' : '1px solid transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                <List size={12} />
+                <span>Scroll</span>
+              </button>
+            </div>
+
             <button
               onClick={() => setIsContinuousMode(!isContinuousMode)}
               title={isContinuousMode ? 'Switch to single-chapter reading' : 'Read entire book continuously'}
@@ -555,6 +747,42 @@ export const BookLibraryView: React.FC<BookLibraryViewProps> = ({
                 <button onClick={() => setIsSettingsOpen(false)} style={{ color: 'var(--text-muted)' }}>
                   <X size={16} />
                 </button>
+              </div>
+
+              {/* Page Layout Mode */}
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                  Page Layout Mode
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                  {[
+                    { id: 'single', name: '1-Page', icon: <FileText size={12} /> },
+                    { id: 'dual', name: '2-Page Book', icon: <BookOpen size={12} /> },
+                    { id: 'scroll', name: 'Scroll', icon: <List size={12} /> },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => setPageLayoutMode(m.id as any)}
+                      style={{
+                        padding: '6px 4px',
+                        borderRadius: '6px',
+                        border: pageLayoutMode === m.id ? '2px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+                        backgroundColor: pageLayoutMode === m.id ? 'var(--accent-pill)' : 'transparent',
+                        color: pageLayoutMode === m.id ? 'var(--accent-pill-text)' : 'inherit',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {m.icon}
+                      <span>{m.name}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Theme Selection */}
@@ -740,29 +968,30 @@ export const BookLibraryView: React.FC<BookLibraryViewProps> = ({
             </div>
           )}
 
-          {/* Reading Surface */}
-          <main
-            ref={readerContainerRef}
-            style={{
-              flex: 1,
-              height: '100%',
-              overflowY: 'auto',
-              padding: '48px 32px 140px 32px',
-              position: 'relative',
-            }}
-          >
-            <div style={{
-              maxWidth: `${maxWidth}px`,
-              margin: '0 auto',
-              fontFamily: appearance.proseFont.includes(' ') && !appearance.proseFont.startsWith("'")
-                ? `'${appearance.proseFont}', serif`
-                : appearance.proseFont,
-              fontSize: `${fontSize}px`,
-              lineHeight: lineHeight,
-              color: 'var(--text-primary)',
-              textAlign,
-            }}>
-              {/* Single Chapter Mode */}
+          {/* Reading Surface: Paginated Spread or Continuous Scroll */}
+          {pageLayoutMode === 'scroll' ? (
+            <main
+              ref={readerContainerRef}
+              style={{
+                flex: 1,
+                height: '100%',
+                overflowY: 'auto',
+                padding: '48px 32px 140px 32px',
+                position: 'relative',
+              }}
+            >
+              <div style={{
+                maxWidth: `${maxWidth}px`,
+                margin: '0 auto',
+                fontFamily: appearance.proseFont.includes(' ') && !appearance.proseFont.startsWith("'")
+                  ? `'${appearance.proseFont}', serif`
+                  : appearance.proseFont,
+                fontSize: `${fontSize}px`,
+                lineHeight: lineHeight,
+                color: 'var(--text-primary)',
+                textAlign,
+              }}>
+                {/* Single Chapter Mode */}
               {!isContinuousMode && activeEpubChapter && (
                 <article key={activeEpubChapter.id} style={{ position: 'relative' }}>
                   <header style={{ textAlign: 'center', marginBottom: '48px' }}>
@@ -932,8 +1161,382 @@ export const BookLibraryView: React.FC<BookLibraryViewProps> = ({
                   ))}
                 </div>
               )}
+              </div>
+            </main>
+          ) : (
+            <div style={{
+              flex: 1,
+              height: '100%',
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px 28px',
+              overflow: 'hidden',
+              userSelect: 'text',
+            }}>
+              {/* Floating Prev Page Button */}
+              <button
+                onClick={goToPrevPage}
+                disabled={currentSpread <= 1 && epubChapterIndex <= 0}
+                title="Previous Page (Left Arrow ← or PageUp)"
+                style={{
+                  position: 'absolute',
+                  left: '18px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
+                  boxShadow: 'var(--shadow-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--text-secondary)',
+                  cursor: (currentSpread <= 1 && epubChapterIndex <= 0) ? 'not-allowed' : 'pointer',
+                  opacity: (currentSpread <= 1 && epubChapterIndex <= 0) ? 0.35 : 0.85,
+                  zIndex: 25,
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (currentSpread > 1 || epubChapterIndex > 0) {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.transform = 'translateY(-50%) scale(1.08)';
+                    e.currentTarget.style.color = 'var(--accent-primary)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = (currentSpread <= 1 && epubChapterIndex <= 0) ? '0.35' : '0.85';
+                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }}
+              >
+                <ChevronLeft size={24} />
+              </button>
+
+              {/* Floating Next Page Button */}
+              <button
+                onClick={goToNextPage}
+                disabled={currentSpread >= totalSpreads && epubChapterIndex >= (selectedBook.epubChapters?.length || 1) - 1}
+                title="Next Page (Right Arrow → or PageDown, Space)"
+                style={{
+                  position: 'absolute',
+                  right: '18px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
+                  boxShadow: 'var(--shadow-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--text-secondary)',
+                  cursor: (currentSpread >= totalSpreads && epubChapterIndex >= (selectedBook.epubChapters?.length || 1) - 1) ? 'not-allowed' : 'pointer',
+                  opacity: (currentSpread >= totalSpreads && epubChapterIndex >= (selectedBook.epubChapters?.length || 1) - 1) ? 0.35 : 0.85,
+                  zIndex: 25,
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (currentSpread < totalSpreads || epubChapterIndex < (selectedBook.epubChapters?.length || 1) - 1) {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.transform = 'translateY(-50%) scale(1.08)';
+                    e.currentTarget.style.color = 'var(--accent-primary)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = (currentSpread >= totalSpreads && epubChapterIndex >= (selectedBook.epubChapters?.length || 1) - 1) ? '0.35' : '0.85';
+                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }}
+              >
+                <ChevronRight size={24} />
+              </button>
+
+              {/* Book Spread Card */}
+              <div style={{
+                position: 'relative',
+                width: '100%',
+                maxWidth: pageLayoutMode === 'dual' ? '1240px' : '760px',
+                height: 'calc(100vh - 110px)',
+                backgroundColor: 'var(--bg-card)',
+                borderRadius: '12px',
+                boxShadow: 'var(--shadow-lg), 0 0 0 1px var(--border-subtle)',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}>
+                {/* Center Spine Divider in Dual Page Mode */}
+                {pageLayoutMode === 'dual' && (
+                  <div style={{
+                    position: 'absolute',
+                    left: '50%',
+                    top: 0,
+                    bottom: '38px',
+                    width: '1px',
+                    background: 'linear-gradient(to bottom, transparent, var(--border-strong) 4%, var(--border-strong) 96%, transparent)',
+                    boxShadow: '0 0 10px rgba(0, 0, 0, 0.06)',
+                    pointerEvents: 'none',
+                    zIndex: 5,
+                  }} />
+                )}
+
+                {/* Multi-Column Paginated Content Container */}
+                <div
+                  ref={pageContainerRef}
+                  className="paginated-reader-column"
+                  onScroll={() => {
+                    const el = pageContainerRef.current;
+                    if (!el) return;
+                    const gap = pageLayoutMode === 'dual' ? 56 : 0;
+                    const idx = Math.round(el.scrollLeft / (el.clientWidth + gap));
+                    const cur = Math.min(totalSpreads, Math.max(1, idx + 1));
+                    if (cur !== currentSpread) setCurrentSpread(cur);
+                  }}
+                  style={{
+                    flex: 1,
+                    width: '100%',
+                    height: 'calc(100% - 38px)',
+                    columnCount: pageLayoutMode === 'dual' ? 2 : 1,
+                    columnGap: pageLayoutMode === 'dual' ? '56px' : '0px',
+                    columnFill: 'auto',
+                    padding: pageLayoutMode === 'dual' ? '32px 48px 18px 48px' : '36px 52px 18px 52px',
+                    overflowX: 'hidden',
+                    overflowY: 'hidden',
+                    scrollBehavior: 'smooth',
+                    fontFamily: appearance.proseFont.includes(' ') && !appearance.proseFont.startsWith("'")
+                      ? `'${appearance.proseFont}', serif`
+                      : appearance.proseFont,
+                    fontSize: `${fontSize}px`,
+                    lineHeight: lineHeight,
+                    color: 'var(--text-primary)',
+                    textAlign,
+                  }}
+                >
+                  {/* Single Chapter Mode */}
+              {!isContinuousMode && activeEpubChapter && (
+                <article key={activeEpubChapter.id} style={{ position: 'relative' }}>
+                  <header style={{ textAlign: 'center', marginBottom: '48px' }}>
+                    <div style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.12em',
+                      color: 'var(--accent-primary)',
+                      marginBottom: '8px',
+                    }}>
+                      {selectedBook.title} • {selectedBook.author}
+                    </div>
+
+                    <h1 style={{
+                      fontSize: '34px',
+                      fontWeight: 700,
+                      letterSpacing: '-0.02em',
+                      lineHeight: '1.25',
+                      marginBottom: '12px',
+                    }}>
+                      {activeEpubChapter.title}
+                    </h1>
+
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px',
+                      fontSize: '12px',
+                      color: 'var(--text-muted)',
+                      fontFamily: 'var(--font-sans)',
+                    }}>
+                      <span>Chapter {epubChapterIndex + 1} of {selectedBook.epubChapters.length}</span>
+                      {activeEpubChapter.wordCount ? (
+                        <>
+                          <span>•</span>
+                          <span>{activeEpubChapter.wordCount.toLocaleString()} words</span>
+                        </>
+                      ) : null}
+                      <span>•</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Clock size={12} />
+                        ~{Math.max(1, Math.ceil((activeEpubChapter.wordCount || 500) / 220))} min read
+                      </span>
+                    </div>
+
+                    <div style={{
+                      fontSize: '18px',
+                      color: 'var(--accent-primary)',
+                      margin: '24px 0',
+                      letterSpacing: '0.3em',
+                      opacity: 0.8,
+                    }}>
+                      ❧ ❧ ❧
+                    </div>
+                  </header>
+
+                  {/* Chapter Content HTML */}
+                  <div
+                    className="reading-chapter-html"
+                    dangerouslySetInnerHTML={{ __html: activeEpubChapter.contentHtml }}
+                    style={{ fontSize: 'inherit', lineHeight: 'inherit' }}
+                  />
+
+                  {/* Chapter Bottom Navigation */}
+                  <footer style={{
+                    marginTop: '64px',
+                    paddingTop: '24px',
+                    borderTop: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: '13px',
+                  }}>
+                    {epubChapterIndex > 0 ? (
+                      <button
+                        onClick={() => goToEpubChapter(epubChapterIndex - 1)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          color: 'var(--text-secondary)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <ArrowLeft size={14} />
+                        <span>{selectedBook.epubChapters[epubChapterIndex - 1].title}</span>
+                      </button>
+                    ) : <div />}
+
+                    <button
+                      onClick={closeBook}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        color: 'var(--accent-primary)',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <LibraryIcon size={14} />
+                      <span>Back to Library</span>
+                    </button>
+
+                    {epubChapterIndex < selectedBook.epubChapters.length - 1 ? (
+                      <button
+                        onClick={() => goToEpubChapter(epubChapterIndex + 1)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          color: 'var(--text-secondary)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <span>{selectedBook.epubChapters[epubChapterIndex + 1].title}</span>
+                        <ArrowRight size={14} />
+                      </button>
+                    ) : <div />}
+                  </footer>
+                </article>
+              )}
+
+              {/* Continuous Whole Book Mode */}
+              {isContinuousMode && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '80px' }}>
+                  <div style={{ textAlign: 'center', paddingBottom: '32px', borderBottom: '2px solid var(--border-subtle)' }}>
+                    <div style={{ fontSize: '12px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--accent-primary)', marginBottom: '8px' }}>
+                      {selectedBook.format.toUpperCase()} E-Reader
+                    </div>
+                    <h1 style={{ fontSize: '38px', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '8px' }}>
+                      {selectedBook.title}
+                    </h1>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
+                      By {selectedBook.author} • {selectedBook.epubChapters.length} chapters
+                    </p>
+                  </div>
+
+                  {selectedBook.epubChapters.map((ch, idx) => (
+                    <article key={ch.id} id={`library-chapter-${ch.id}`} style={{ position: 'relative' }}>
+                      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.08em' }}>
+                          Chapter {idx + 1}
+                        </span>
+                        <h2 style={{ fontSize: '28px', fontWeight: 600, margin: '6px 0 12px 0' }}>
+                          {ch.title}
+                        </h2>
+                        <div style={{
+                          fontSize: '15px',
+                          color: 'var(--accent-primary)',
+                          letterSpacing: '0.25em',
+                          opacity: 0.8,
+                        }}>
+                          ✦ ✦ ✦
+                        </div>
+                      </div>
+
+                      <div
+                        className="reading-chapter-html"
+                        dangerouslySetInnerHTML={{ __html: ch.contentHtml }}
+                        style={{ fontSize: 'inherit', lineHeight: 'inherit' }}
+                      />
+                    </article>
+                  ))}
+                </div>
+              )}
+                </div>
+
+                {/* Book Spread Footer */}
+                <footer style={{
+                  height: '38px',
+                  borderTop: '1px solid var(--border-subtle)',
+                  backgroundColor: 'var(--bg-app)',
+                  padding: '0 24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                  userSelect: 'none',
+                  flexShrink: 0,
+                  fontFamily: 'var(--font-mono)',
+                }}>
+                  {pageLayoutMode === 'dual' ? (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>Page {(currentSpread - 1) * 2 + 1}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontFamily: 'var(--font-sans)', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                          {activeEpubChapter?.title || selectedBook.title}
+                        </span>
+                        <span>•</span>
+                        <span>Spread {currentSpread} of {totalSpreads}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>Page {Math.min((currentSpread - 1) * 2 + 2, totalSpreads * 2)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontFamily: 'var(--font-sans)', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                        {activeEpubChapter?.title || selectedBook.title}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span>Page {currentSpread} of {totalSpreads}</span>
+                        <span>•</span>
+                        <span>{Math.round((currentSpread / totalSpreads) * 100)}%</span>
+                      </div>
+                    </>
+                  )}
+                </footer>
+              </div>
             </div>
-          </main>
+          )}
         </div>
       </div>
     );
