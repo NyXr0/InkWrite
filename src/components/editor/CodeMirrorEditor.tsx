@@ -57,16 +57,18 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   // Build CodeMirror Theme extension based on theme mode
   const getThemeExtension = (currentTheme: ThemeMode) => {
-    const isDark = currentTheme === 'night';
+    const isDark = currentTheme === 'night' || currentTheme === 'oled';
     const isSepia = currentTheme === 'sepia';
+    const textColor = isDark ? '#e6e5e0' : isSepia ? '#382c1e' : '#1f1e1d';
 
     return EditorView.theme({
       '&': {
         height: '100%',
         fontSize: 'var(--editor-font-size, 17px)',
         fontFamily: "var(--font-serif), Georgia, Cambria, serif",
-        color: isDark ? '#e6e5e0' : isSepia ? '#382c1e' : '#1f1e1d',
+        color: textColor,
         backgroundColor: 'transparent',
+        opacity: '1',
       },
       '.cm-content': {
         padding: '32px 0 120px 0',
@@ -74,9 +76,13 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         caretColor: 'var(--accent-primary, #2d5a4c)',
         maxWidth: 'var(--editor-max-width, 720px)',
         margin: '0 auto',
+        color: textColor,
+        opacity: '1',
       },
       '.cm-line': {
         padding: '0',
+        color: 'inherit',
+        opacity: '1',
       },
       '&.cm-focused': {
         outline: 'none',
@@ -316,8 +322,14 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
           padding: '24px 32px 64px 32px',
           borderRight: isSplitView ? '1px solid var(--border-subtle)' : 'none',
           position: 'relative',
+          backgroundColor: 'var(--bg-editor)',
         }}>
-          <div style={{ maxWidth: '720px', margin: '0 auto' }}>
+          <div style={{ 
+            maxWidth: 'var(--editor-max-width, 720px)', 
+            margin: '0 auto',
+            backgroundColor: 'var(--bg-editor)',
+            opacity: 1,
+          }}>
             {/* Header / Scene Metadata Banner */}
             <div style={{ marginBottom: '24px' }}>
               <div style={{
@@ -383,7 +395,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             padding: '24px 32px 64px 32px',
             backgroundColor: 'var(--bg-sidebar)',
           }}>
-            <div style={{ maxWidth: '720px', margin: '0 auto' }}>
+            <div style={{ maxWidth: 'var(--editor-max-width, 720px)', margin: '0 auto', opacity: 1 }}>
               {/* Reference Header */}
               <div style={{
                 display: 'flex',
@@ -398,6 +410,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                       fontSize: '24px',
                       fontWeight: 600,
                       color: 'var(--text-primary)',
+                      opacity: 1,
                     }}>
                       {referenceScene.title}
                     </h2>
@@ -408,11 +421,12 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                       borderRadius: '4px',
                       backgroundColor: 'var(--bg-active)',
                       color: 'var(--text-secondary)',
+                      opacity: 1,
                     }}>
                       Reference, read only
                     </span>
                   </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', opacity: 1 }}>
                     POV {referenceScene.pov} • {referenceScene.wordCount.toLocaleString()} words
                   </div>
                 </div>
@@ -437,7 +451,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                 lineHeight: '1.85',
                 color: 'var(--text-primary)',
                 whiteSpace: 'pre-wrap',
-                opacity: 0.9,
+                opacity: 1,
               }}>
                 {referenceScene.content || 'No text written yet.'}
               </div>

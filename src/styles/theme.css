@@ -147,33 +147,65 @@
   --dimmed-opacity: 0.15;
 }
 
-/* Atmospheric wallpaper transparency when custom wallpaper is active */
+/* Atmospheric wallpaper handling:
+   Keep text surfaces (--bg-editor, --bg-surface, --bg-card) 100% solid and opaque
+   so background changes NEVER compromise text readability or contrast. */
 .has-custom-wallpaper[data-theme='paper'] {
-  --bg-app: rgba(250, 249, 245, 0.86);
-  --bg-sidebar: rgba(245, 244, 239, 0.88);
-  --bg-editor: rgba(250, 249, 245, 0.82);
-  --bg-surface: rgba(255, 255, 255, 0.90);
+  --bg-app: rgba(250, 249, 245, 0.92);
+  --bg-sidebar: #f5f4ef;
+  --bg-editor: #faf9f5;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
 }
 
 .has-custom-wallpaper[data-theme='night'] {
-  --bg-app: rgba(18, 19, 22, 0.86);
-  --bg-sidebar: rgba(24, 25, 29, 0.90);
-  --bg-editor: rgba(18, 19, 22, 0.82);
-  --bg-surface: rgba(30, 32, 37, 0.90);
+  --bg-app: rgba(18, 19, 22, 0.92);
+  --bg-sidebar: #18191d;
+  --bg-editor: #121316;
+  --bg-surface: #1e2025;
+  --bg-card: #1e2025;
 }
 
 .has-custom-wallpaper[data-theme='sepia'] {
-  --bg-app: rgba(242, 235, 217, 0.86);
-  --bg-sidebar: rgba(234, 226, 204, 0.90);
-  --bg-editor: rgba(242, 235, 217, 0.82);
-  --bg-surface: rgba(249, 245, 233, 0.92);
+  --bg-app: rgba(242, 235, 217, 0.92);
+  --bg-sidebar: #eae2cc;
+  --bg-editor: #f2ebd9;
+  --bg-surface: #f9f5e9;
+  --bg-card: #f9f5e9;
 }
 
 .has-custom-wallpaper[data-theme='oled'] {
-  --bg-app: rgba(0, 0, 0, 0.88);
-  --bg-sidebar: rgba(9, 9, 11, 0.92);
-  --bg-editor: rgba(0, 0, 0, 0.84);
-  --bg-surface: rgba(18, 18, 20, 0.92);
+  --bg-app: rgba(0, 0, 0, 0.94);
+  --bg-sidebar: #09090b;
+  --bg-editor: #000000;
+  --bg-surface: #121214;
+  --bg-card: #121214;
+}
+
+/* Global text opacity and contrast rules:
+   Text opacity remains normal (100% opaque) and unaffected by background changes */
+.cm-editor,
+.cm-content,
+.cm-line,
+.cm-scroller,
+textarea,
+input,
+p,
+span,
+h1, h2, h3, h4, h5, h6,
+article,
+section {
+  opacity: 1;
+}
+
+.cm-content {
+  color: var(--text-primary) !important;
+  opacity: 1 !important;
+}
+
+.cm-line {
+  color: inherit !important;
+  opacity: 1 !important;
 }
 
 /* Base Styles */

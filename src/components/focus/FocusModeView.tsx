@@ -42,11 +42,10 @@ export const FocusModeView: React.FC<FocusModeViewProps> = ({
 
   return (
     <div
-      data-theme="sepia"
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'var(--bg-app)',
+        backgroundColor: 'var(--bg-editor)',
         color: 'var(--text-primary)',
         zIndex: 9999,
         display: 'flex',
@@ -80,7 +79,7 @@ export const FocusModeView: React.FC<FocusModeViewProps> = ({
         ref={containerRef}
         style={{
           width: '100%',
-          maxWidth: '720px',
+          maxWidth: 'var(--editor-max-width, 720px)',
           flex: 1,
           overflowY: 'auto',
           display: 'flex',
@@ -101,8 +100,10 @@ export const FocusModeView: React.FC<FocusModeViewProps> = ({
                 fontFamily: 'var(--font-serif)',
                 fontSize: '20px',
                 lineHeight: '1.9',
-                opacity: isActive ? 1 : 0.22,
-                transition: 'opacity 0.25s ease, transform 0.25s ease',
+                opacity: 1, // Keep text opacity normal (100% visible)
+                borderLeft: isActive ? '3px solid var(--accent-primary)' : '3px solid transparent',
+                paddingLeft: '16px',
+                transition: 'border-color 0.2s ease, background-color 0.2s ease',
                 cursor: 'text',
                 position: 'relative',
               }}
@@ -121,7 +122,8 @@ export const FocusModeView: React.FC<FocusModeViewProps> = ({
                   fontFamily: 'inherit',
                   fontSize: 'inherit',
                   lineHeight: 'inherit',
-                  color: 'inherit',
+                  color: 'var(--text-primary)',
+                  opacity: 1,
                   padding: 0,
                   margin: 0,
                 }}
