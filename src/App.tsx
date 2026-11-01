@@ -21,6 +21,7 @@ import { InsightsView } from './components/insights/InsightsView';
 import { TimelineView } from './components/timeline/TimelineView';
 import { CodexView } from './components/codex/CodexView';
 import { ReadingModeView } from './components/reading/ReadingModeView';
+import { BookLibraryView } from './components/library/BookLibraryView';
 import { CommandPalette } from './components/palette/CommandPalette';
 import { ProjectHubModal } from './components/project/ProjectHubModal';
 import { NewProjectModal } from './components/project/NewProjectModal';
@@ -750,6 +751,14 @@ export const App: React.FC = () => {
               setActiveSceneId(id);
               setCurrentView('write');
             }}
+          />
+        )}
+
+        {currentView === 'library' && (
+          <BookLibraryView
+            project={activeProject}
+            appearance={appearance}
+            onUpdateAppearance={setAppearance}
           />
         )}
 

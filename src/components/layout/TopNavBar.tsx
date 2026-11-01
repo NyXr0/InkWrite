@@ -20,7 +20,8 @@ import {
   Trash2,
   LogOut,
   Palette,
-  PenTool
+  PenTool,
+  Library
 } from 'lucide-react';
 
 interface TopNavBarProps {
@@ -349,6 +350,24 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
           >
             <BookOpen size={15} />
             <span>Read</span>
+          </button>
+
+          <button
+            onClick={() => onSelectView('library')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: 500,
+              backgroundColor: currentView === 'library' ? 'var(--bg-active)' : 'transparent',
+              color: currentView === 'library' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            }}
+          >
+            <Library size={15} />
+            <span>Library</span>
           </button>
 
           <button

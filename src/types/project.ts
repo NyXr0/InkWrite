@@ -1,6 +1,6 @@
 export type ThemeMode = 'paper' | 'night' | 'sepia' | 'oled';
 
-export type MainView = 'write' | 'corkboard' | 'timeline' | 'codex' | 'insights' | 'read';
+export type MainView = 'write' | 'corkboard' | 'timeline' | 'codex' | 'insights' | 'read' | 'library';
 
 export type SceneStatus = 'idea' | 'first-draft' | 'second-draft' | 'revised' | 'final';
 
