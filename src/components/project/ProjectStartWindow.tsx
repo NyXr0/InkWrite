@@ -1,6 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ProjectData, ThemeMode } from '../../types/project';
 import { ProjectStorage } from '../../core/storage';
+import { BookLibraryView } from '../library/BookLibraryView';
+import { AppearanceSettings } from '../../types/appearance';
 import { 
   BookOpen, 
   Plus, 
@@ -14,7 +16,9 @@ import {
   Sparkles,
   AlertTriangle,
   Palette,
-  Upload
+  Upload,
+  PenTool,
+  Library
 } from 'lucide-react';
 
 interface ProjectStartWindowProps {
@@ -32,6 +36,11 @@ interface ProjectStartWindowProps {
   onSelectTheme: (theme: ThemeMode) => void;
   onOpenAppearance?: () => void;
   onImportProject?: (project: ProjectData) => void;
+  appearance: AppearanceSettings;
+  onUpdateAppearance: (settings: AppearanceSettings) => void;
+  initialMode?: 'writer' | 'library';
+  activeProject?: ProjectData;
+  onReturnToProject?: () => void;
 }
 
 export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
@@ -43,8 +52,20 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
   onSelectTheme,
   onOpenAppearance,
   onImportProject,
+  appearance,
+  onUpdateAppearance,
+  initialMode = 'writer',
+  activeProject,
+  onReturnToProject,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [primaryMode, setPrimaryMode] = useState<'writer' | 'library'>(initialMode);
+
+  useEffect(() => {
+    if (initialMode) {
+      setPrimaryMode(initialMode);
+    }
+  }, [initialMode]);
   const [isCreating, setIsCreating] = useState(false);
   const [title, setTitle] = useState('');
   const [targetWords, setTargetWords] = useState(80000);
@@ -120,34 +141,167 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
       color: 'var(--text-primary)',
       display: 'flex',
       flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '32px 24px',
-      overflowY: 'auto',
+      overflow: 'hidden',
       userSelect: 'none',
       position: 'relative',
     }}>
-      {/* Top Right Controls: Appearance & Themes */}
-      <div style={{
-        position: 'absolute',
-        top: '24px',
-        right: '28px',
+      {/* Primary Top Header Bar with Mode Division */}
+      <header style={{
+        height: '52px',
+        borderBottom: '1px solid var(--border-subtle)',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
+        justifyContent: 'space-between',
+        padding: '0 24px',
+        backgroundColor: 'var(--bg-app)',
+        flexShrink: 0,
+        zIndex: 10,
       }}>
-        {onImportProject && (
-          <>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileImport}
-              accept=".json,application/json"
-              style={{ display: 'none' }}
-            />
+        {/* Left: Branding */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{
+            fontFamily: 'var(--font-serif)',
+            fontSize: '18px',
+            fontWeight: 700,
+            color: 'var(--accent-primary)',
+            letterSpacing: '-0.02em',
+          }}>
+            Inkwell
+          </span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>
+            {primaryMode === 'writer' ? 'Studio' : 'Library'}
+          </span>
+        </div>
+
+        {/* Center: Primary Mode Division Tabs */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          backgroundColor: 'var(--bg-active)',
+          borderRadius: '8px',
+          padding: '3px',
+          gap: '4px',
+          border: '1px solid var(--border-subtle)',
+          boxShadow: 'var(--shadow-sm)',
+        }}>
+          <button
+            onClick={() => setPrimaryMode('writer')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 18px',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: 600,
+              border: 'none',
+              backgroundColor: primaryMode === 'writer' ? 'var(--bg-surface)' : 'transparent',
+              color: primaryMode === 'writer' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              boxShadow: primaryMode === 'writer' ? 'var(--shadow-sm)' : 'none',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <PenTool size={15} />
+            <span>1st: Writer Mode</span>
+          </button>
+
+          <button
+            onClick={() => setPrimaryMode('library')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 18px',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: 600,
+              border: 'none',
+              backgroundColor: primaryMode === 'library' ? 'var(--bg-surface)' : 'transparent',
+              color: primaryMode === 'library' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              boxShadow: primaryMode === 'library' ? 'var(--shadow-sm)' : 'none',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Library size={15} />
+            <span>2nd: Reading Library</span>
+          </button>
+        </div>
+
+        {/* Right: Actions, Theme & Appearance */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* If there's an active open project and user is viewing library or start window */}
+          {activeProject && onReturnToProject && (
             <button
-              onClick={() => fileInputRef.current?.click()}
-              title="Restore / Import project from JSON backup file"
+              onClick={onReturnToProject}
+              title={`Return to writing "${activeProject.settings.title}"`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--accent-primary)',
+                color: '#fff',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: 'none',
+                boxShadow: '0 2px 6px rgba(235, 94, 40, 0.25)',
+              }}
+            >
+              <PenTool size={13} />
+              <span>Resume "${activeProject.settings.title}"</span>
+            </button>
+          )}
+
+          {/* Import Backup (in Writer Mode) */}
+          {primaryMode === 'writer' && onImportProject && (
+            <>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileImport}
+                accept=".json,application/json"
+                style={{ display: 'none' }}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                title="Restore / Import project from JSON backup file"
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  backgroundColor: 'var(--bg-active)',
+                  color: 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  border: '1px solid var(--border-subtle)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                  e.currentTarget.style.color = 'var(--text-primary)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--bg-active)';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }}
+              >
+                <Upload size={14} />
+                <span>Import Backup</span>
+              </button>
+            </>
+          )}
+
+          {/* Appearance Modal trigger */}
+          {onOpenAppearance && (
+            <button
+              onClick={onOpenAppearance}
+              title="Customize Appearance & Background (Wallpaper, Fonts, Colors)..."
               style={{
                 padding: '6px 10px',
                 borderRadius: '6px',
@@ -170,114 +324,94 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
                 e.currentTarget.style.color = 'var(--text-secondary)';
               }}
             >
-              <Upload size={14} />
-              <span>Import Backup</span>
+              <Palette size={14} />
+              <span>Appearance</span>
             </button>
-          </>
-        )}
+          )}
 
-        {onOpenAppearance && (
-          <button
-            onClick={onOpenAppearance}
-            title="Customize Appearance & Background (Wallpaper, Fonts, Colors)..."
-            style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
-              backgroundColor: 'var(--bg-active)',
-              color: 'var(--text-secondary)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              border: '1px solid var(--border-subtle)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--bg-active)';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-            }}
-          >
-            <Palette size={14} />
-            <span>Appearance</span>
-          </button>
-        )}
-
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          backgroundColor: 'var(--bg-active)',
-          borderRadius: '6px',
-          padding: '2px',
-        }}>
-        <button
-          onClick={() => onSelectTheme('paper')}
-          style={{
-            padding: '4px 8px',
-            borderRadius: '4px',
-            fontSize: '12px',
+          {/* Theme Selector */}
+          <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '4px',
-            backgroundColor: theme === 'paper' ? 'var(--bg-surface)' : 'transparent',
-            color: theme === 'paper' ? 'var(--text-primary)' : 'var(--text-muted)',
-            boxShadow: theme === 'paper' ? 'var(--shadow-sm)' : 'none',
-          }}
-        >
-          <Sun size={13} />
-          <span>Paper</span>
-        </button>
-
-        <button
-          onClick={() => onSelectTheme('sepia')}
-          style={{
-            padding: '4px 8px',
-            borderRadius: '4px',
-            fontSize: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            backgroundColor: theme === 'sepia' ? 'var(--bg-surface)' : 'transparent',
-            color: theme === 'sepia' ? 'var(--text-primary)' : 'var(--text-muted)',
-            boxShadow: theme === 'sepia' ? 'var(--shadow-sm)' : 'none',
-          }}
-        >
-          <Coffee size={13} />
-          <span>Sepia</span>
-        </button>
-
-        <button
-          onClick={() => onSelectTheme('night')}
-          style={{
-            padding: '4px 8px',
-            borderRadius: '4px',
-            fontSize: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            backgroundColor: theme === 'night' ? 'var(--bg-surface)' : 'transparent',
-            color: theme === 'night' ? 'var(--text-primary)' : 'var(--text-muted)',
-            boxShadow: theme === 'night' ? 'var(--shadow-sm)' : 'none',
-          }}
-        >
-          <Moon size={13} />
-          <span>Night</span>
-        </button>
+            backgroundColor: 'var(--bg-active)',
+            borderRadius: '6px',
+            padding: '2px',
+          }}>
+            <button
+              onClick={() => onSelectTheme('paper')}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                backgroundColor: theme === 'paper' ? 'var(--bg-surface)' : 'transparent',
+                color: theme === 'paper' ? 'var(--text-primary)' : 'var(--text-muted)',
+                boxShadow: theme === 'paper' ? 'var(--shadow-sm)' : 'none',
+              }}
+            >
+              <Sun size={13} />
+              <span>Paper</span>
+            </button>
+            <button
+              onClick={() => onSelectTheme('sepia')}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                backgroundColor: theme === 'sepia' ? 'var(--bg-surface)' : 'transparent',
+                color: theme === 'sepia' ? 'var(--text-primary)' : 'var(--text-muted)',
+                boxShadow: theme === 'sepia' ? 'var(--shadow-sm)' : 'none',
+              }}
+            >
+              <Coffee size={13} />
+              <span>Sepia</span>
+            </button>
+            <button
+              onClick={() => onSelectTheme('night')}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                backgroundColor: theme === 'night' ? 'var(--bg-surface)' : 'transparent',
+                color: theme === 'night' ? 'var(--text-primary)' : 'var(--text-muted)',
+                boxShadow: theme === 'night' ? 'var(--shadow-sm)' : 'none',
+              }}
+            >
+              <Moon size={13} />
+              <span>Night</span>
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
-      {/* Main Start Window Container */}
-      <div style={{
-        width: '100%',
-        maxWidth: '820px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '28px',
-      }}>
+      {/* Main Content Body */}
+      <div style={{ flex: 1, width: '100%', overflow: 'hidden', display: 'flex', position: 'relative' }}>
+        {primaryMode === 'writer' ? (
+          /* Part 1: Writer Mode View */
+          <div style={{
+            flex: 1,
+            height: '100%',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            padding: '36px 24px',
+          }}>
+            <div style={{
+              width: '100%',
+              maxWidth: '820px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '28px',
+            }}>
         {/* Hero Branding Header */}
         <div style={{ textAlign: 'center' }}>
           <div style={{
@@ -761,6 +895,19 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
               </div>
             </div>
           </>
+        )}
+            </div>
+          </div>
+        ) : (
+          /* Part 2: Reading Library View */
+          <div style={{ flex: 1, height: '100%', overflow: 'hidden' }}>
+            <BookLibraryView
+              appearance={appearance}
+              onUpdateAppearance={onUpdateAppearance}
+              onBackToWriter={onReturnToProject || (() => setPrimaryMode('writer'))}
+              writerProjectTitle={activeProject?.settings.title}
+            />
+          </div>
         )}
       </div>
 

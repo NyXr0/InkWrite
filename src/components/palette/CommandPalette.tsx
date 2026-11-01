@@ -14,7 +14,8 @@ import {
   Search,
   Palette,
   BookOpen,
-  Download
+  Download,
+  Library
 } from 'lucide-react';
 
 interface CommandPaletteProps {
@@ -31,6 +32,7 @@ interface CommandPaletteProps {
   onSelectTheme: (theme: ThemeMode) => void;
   onOpenAppearance: () => void;
   onOpenCompile?: () => void;
+  onOpenReadingLibrary?: () => void;
   onOpenNewProject: () => void;
   onOpenProjectHub: () => void;
 }
@@ -49,6 +51,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onSelectTheme,
   onOpenAppearance,
   onOpenCompile,
+  onOpenReadingLibrary,
   onOpenNewProject,
   onOpenProjectHub,
 }) => {
@@ -134,6 +137,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       shortcut: 'Ctrl Shift E',
       icon: <Download size={14} />,
       action: () => { onClose(); onOpenCompile(); },
+    }] : []),
+    ...(onOpenReadingLibrary ? [{
+      id: 'cmd-reading-library',
+      title: 'Open Reading Library (Bookshelf & eBooks)...',
+      shortcut: 'Ctrl Shift L',
+      icon: <Library size={14} />,
+      action: () => { onClose(); onOpenReadingLibrary(); },
     }] : []),
     {
       id: 'cmd-appearance',

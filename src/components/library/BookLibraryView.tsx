@@ -37,15 +37,19 @@ import {
 } from 'lucide-react';
 
 interface BookLibraryViewProps {
-  project: ProjectData;
+  project?: ProjectData;
   appearance: AppearanceSettings;
   onUpdateAppearance: (settings: AppearanceSettings) => void;
+  onBackToWriter?: () => void;
+  writerProjectTitle?: string;
 }
 
 export const BookLibraryView: React.FC<BookLibraryViewProps> = ({
   project,
   appearance,
   onUpdateAppearance,
+  onBackToWriter,
+  writerProjectTitle,
 }) => {
   // Bookshelf state
   const [books, setBooks] = useState<LibraryBook[]>([]);
@@ -1602,6 +1606,38 @@ export const BookLibraryView: React.FC<BookLibraryViewProps> = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {onBackToWriter && (
+            <button
+              onClick={onBackToWriter}
+              title="Return to Writer Mode"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--bg-active)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-primary)',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                marginRight: '4px',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                e.currentTarget.style.color = 'var(--accent-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-active)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+            >
+              <ArrowLeft size={14} />
+              <span>{writerProjectTitle ? `Back to "${writerProjectTitle}"` : 'Writer Mode'}</span>
+            </button>
+          )}
+
           <div
             style={{
               width: '38px',

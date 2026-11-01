@@ -61,6 +61,7 @@ export const App: React.FC = () => {
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(false);
   const [isCompileOpen, setIsCompileOpen] = useState<boolean>(false);
+  const [isReadingLibraryActive, setIsReadingLibraryActive] = useState<boolean>(false);
   const [selectedCorkboardFolderId, setSelectedCorkboardFolderId] = useState<string | null>(null);
   const [isProjectHubOpen, setIsProjectHubOpen] = useState<boolean>(false);
   const [isNewProjectOpen, setIsNewProjectOpen] = useState<boolean>(false);
@@ -791,20 +792,31 @@ export const App: React.FC = () => {
     }));
   };
 
-  // If no project has been started by the user yet, display the Project Start Window!
-  if (!isProjectOpen) {
+  // If no project has been started by the user yet, or if Reading Library is active from the primary switcher
+  if (!isProjectOpen || isReadingLibraryActive) {
     return (
       <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
         <CustomBackdrop settings={appearance} />
         <ProjectStartWindow
           projects={projects}
-          onOpenProject={handleOpenProject}
-          onCreateProject={handleCreateProject}
+          onOpenProject={(projId) => {
+            setIsReadingLibraryActive(false);
+            handleOpenProject(projId);
+          }}
+          onCreateProject={(params) => {
+            setIsReadingLibraryActive(false);
+            handleCreateProject(params);
+          }}
           onImportProject={handleImportProject}
           onDeleteProject={handleDeleteProject}
           theme={theme}
           onSelectTheme={handleSelectTheme}
           onOpenAppearance={() => setIsAppearanceOpen(true)}
+          appearance={appearance}
+          onUpdateAppearance={setAppearance}
+          initialMode={isReadingLibraryActive ? 'library' : 'writer'}
+          activeProject={isProjectOpen ? activeProject : undefined}
+          onReturnToProject={isProjectOpen ? () => setIsReadingLibraryActive(false) : undefined}
         />
         <AppearanceModal
           isOpen={isAppearanceOpen}
@@ -843,6 +855,7 @@ export const App: React.FC = () => {
         onOpenPalette={() => setIsPaletteOpen(true)}
         onOpenAppearance={() => setIsAppearanceOpen(true)}
         onOpenCompile={() => setIsCompileOpen(true)}
+        onOpenReadingLibrary={() => setIsReadingLibraryActive(true)}
         onEnterFocusMode={() => setIsFocusMode(true)}
         projects={projects}
         activeProjectId={activeProjectId}
@@ -969,6 +982,8 @@ export const App: React.FC = () => {
             project={activeProject}
             appearance={appearance}
             onUpdateAppearance={setAppearance}
+            onBackToWriter={() => setCurrentView('write')}
+            writerProjectTitle={activeProject.settings.title}
           />
         )}
 
@@ -1033,6 +1048,7 @@ export const App: React.FC = () => {
         onSelectTheme={handleSelectTheme}
         onOpenAppearance={() => setIsAppearanceOpen(true)}
         onOpenCompile={() => setIsCompileOpen(true)}
+        onOpenReadingLibrary={() => setIsReadingLibraryActive(true)}
         onOpenNewProject={() => setIsNewProjectOpen(true)}
         onOpenProjectHub={() => setIsProjectHubOpen(true)}
       />

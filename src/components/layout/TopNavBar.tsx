@@ -34,6 +34,7 @@ interface TopNavBarProps {
   onOpenPalette: () => void;
   onOpenAppearance: () => void;
   onOpenCompile?: () => void;
+  onOpenReadingLibrary?: () => void;
   onEnterFocusMode: () => void;
   projects: ProjectData[];
   activeProjectId: string;
@@ -53,6 +54,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
   onOpenPalette,
   onOpenAppearance,
   onOpenCompile,
+  onOpenReadingLibrary,
   onEnterFocusMode,
   projects,
   activeProjectId,
@@ -282,6 +284,30 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
                     <span>Manage All Projects...</span>
                   </button>
 
+                  {onOpenReadingLibrary && (
+                    <button
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        onOpenReadingLibrary();
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        fontSize: '13px',
+                        color: 'var(--text-secondary)',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                      <Library size={14} />
+                      <span>Reading Library (Bookshelf)...</span>
+                    </button>
+                  )}
+
                   {onOpenCompile && (
                     <button
                       onClick={() => {
@@ -379,23 +405,6 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
             <span>Read</span>
           </button>
 
-          <button
-            onClick={() => onSelectView('library')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: 500,
-              backgroundColor: currentView === 'library' ? 'var(--bg-active)' : 'transparent',
-              color: currentView === 'library' ? 'var(--text-primary)' : 'var(--text-secondary)',
-            }}
-          >
-            <Library size={15} />
-            <span>Library</span>
-          </button>
 
           <button
             onClick={() => onSelectView('corkboard')}
@@ -469,6 +478,38 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
             <span>Insights</span>
           </button>
         </nav>
+
+        {onOpenReadingLibrary && (
+          <button
+            onClick={onOpenReadingLibrary}
+            title="Open Reading Library (Bookshelf & eBooks)"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 10px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
+              backgroundColor: 'var(--bg-active)',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border-subtle)',
+              cursor: 'pointer',
+              marginLeft: '12px',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+              e.currentTarget.style.color = 'var(--accent-primary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--bg-active)';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+            }}
+          >
+            <Library size={14} color="var(--accent-primary)" />
+            <span>Reading Library</span>
+          </button>
+        )}
       </div>
 
       {/* Center: Command Palette Trigger */}
