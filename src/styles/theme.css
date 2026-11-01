@@ -9,6 +9,11 @@
   --editor-font-size: 17px;
   --editor-line-height: 1.85;
   --editor-max-width: 720px;
+  --paragraph-first-line-indent: 0px;
+  --paragraph-left-indent: 0px;
+  --paragraph-right-indent: 0px;
+  --paragraph-spacing: 0px;
+  --editor-text-align: left;
 
   /* Transition speeds */
   --transition-fast: 0.15s ease;
@@ -241,6 +246,29 @@ section {
 .has-custom-wallpaper[data-theme='oled'] .cm-content {
   color: var(--text-primary) !important;
   text-shadow: 0 0 1px rgba(0, 0, 0, 0.9);
+}
+
+/* MS Word-style paragraph indents and typography */
+.cm-editor {
+  text-align: var(--editor-text-align, left) !important;
+}
+
+.cm-content {
+  text-align: var(--editor-text-align, left) !important;
+}
+
+.cm-content .cm-line {
+  padding-left: var(--paragraph-left-indent, 0px) !important;
+  padding-right: var(--paragraph-right-indent, 0px) !important;
+  text-indent: var(--paragraph-first-line-indent, 0px) !important;
+  margin-bottom: var(--paragraph-spacing, 0px) !important;
+  text-align: var(--editor-text-align, left) !important;
+}
+
+/* Headings in markdown should remain flush left / not inherit paragraph first-line indent */
+.cm-content .cm-line:has(.cm-header) {
+  text-indent: 0px !important;
+  padding-left: 0px !important;
 }
 
 /* Base Styles */

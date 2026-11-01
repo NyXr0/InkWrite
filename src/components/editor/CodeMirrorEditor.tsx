@@ -6,6 +6,12 @@ import { markdown } from '@codemirror/lang-markdown';
 import { SceneItem, LoreEntry, ThemeMode } from '../../types/project';
 import { LoreTagPopup } from './LoreTagPopup';
 import { 
+  EditorRuler, 
+  RulerSettings, 
+  loadRulerSettings, 
+  saveRulerSettings 
+} from './EditorRuler';
+import { 
   Bold, 
   Italic, 
   Camera, 
@@ -13,7 +19,8 @@ import {
   Eye, 
   X,
   FileText,
-  BookOpen
+  BookOpen,
+  Ruler
 } from 'lucide-react';
 
 interface CodeMirrorEditorProps {
@@ -58,6 +65,24 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     posFrom: 0,
   });
 
+  // MS Word-style Indent Ruler state
+  const [rulerSettings, setRulerSettings] = useState<RulerSettings>(() => loadRulerSettings());
+  const [draggingGuideX, setDraggingGuideX] = useState<number | null>(null);
+
+  const handleRulerChange = (newSettings: RulerSettings) => {
+    setRulerSettings(newSettings);
+    saveRulerSettings(newSettings);
+    if (editorViewRef.current) {
+      editorViewRef.current.requestMeasure();
+    }
+  };
+
+  const handleToggleRuler = () => {
+    const updated = { ...rulerSettings, showRuler: !rulerSettings.showRuler };
+    setRulerSettings(updated);
+    saveRulerSettings(updated);
+  };
+
   // Build CodeMirror Theme extension based on theme mode
   const getThemeExtension = (currentTheme: ThemeMode) => {
     const isDark = currentTheme === 'night' || currentTheme === 'oled';
@@ -81,9 +106,16 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         margin: '0 auto',
         color: textColor,
         opacity: '1',
+        textAlign: 'var(--editor-text-align, left)',
       },
       '.cm-line': {
-        padding: '0',
+        paddingTop: '0',
+        paddingBottom: '0',
+        paddingLeft: 'var(--paragraph-left-indent, 0px)',
+        paddingRight: 'var(--paragraph-right-indent, 0px)',
+        textIndent: 'var(--paragraph-first-line-indent, 0px)',
+        marginBottom: 'var(--paragraph-spacing, 0px)',
+        textAlign: 'var(--editor-text-align, left)',
         color: 'inherit',
         opacity: '1',
       },
@@ -304,6 +336,26 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
           )}
 
           <button
+            onClick={handleToggleRuler}
+            title={rulerSettings.showRuler ? "Hide MS Word-style Indent Ruler" : "Show MS Word-style Indent Ruler"}
+            style={{
+              padding: '4px 10px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: 500,
+              color: rulerSettings.showRuler ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              backgroundColor: rulerSettings.showRuler ? 'var(--accent-pill)' : 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+            }}
+          >
+            <Ruler size={14} />
+            <span>Ruler</span>
+          </button>
+
+          <button
             onClick={onToggleSplit}
             title="Toggle Split View (Side-by-side)"
             style={{
@@ -360,13 +412,45 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             borderRight: isSplitView ? '1px solid var(--border-subtle)' : 'none',
             position: 'relative',
             backgroundColor: 'transparent',
-          }}
+            '--paragraph-first-line-indent': `${rulerSettings.firstLineIndent}px`,
+            '--paragraph-left-indent': `${rulerSettings.leftIndent}px`,
+            '--paragraph-right-indent': `${rulerSettings.rightIndent}px`,
+            '--paragraph-spacing': `${rulerSettings.paragraphSpacing}px`,
+            '--editor-text-align': rulerSettings.textAlign,
+          } as React.CSSProperties}
         >
           <div style={{ 
             maxWidth: 'var(--editor-max-width, 720px)', 
             margin: '0 auto',
             opacity: 1,
+            position: 'relative',
           }}>
+            {/* Interactive MS Word-Style Ruler */}
+            {rulerSettings.showRuler && (
+              <EditorRuler
+                settings={rulerSettings}
+                onChange={handleRulerChange}
+                onDraggingGuideChange={setDraggingGuideX}
+              />
+            )}
+
+            {/* Dotted Vertical Guide Line (drops through entire prose canvas during marker drag) */}
+            {draggingGuideX !== null && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '80px',
+                  bottom: '-32px',
+                  left: `${draggingGuideX}px`,
+                  width: '1px',
+                  borderLeft: '1px dashed var(--accent-primary)',
+                  pointerEvents: 'none',
+                  zIndex: 40,
+                  opacity: 0.85,
+                }}
+              />
+            )}
+
             {/* Header / Scene Metadata Banner */}
             <div style={{ marginBottom: '24px' }}>
               <div style={{
