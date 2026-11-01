@@ -18,7 +18,8 @@ import {
   FolderOpen,
   Check,
   Trash2,
-  LogOut
+  LogOut,
+  Palette
 } from 'lucide-react';
 
 interface TopNavBarProps {
@@ -28,6 +29,7 @@ interface TopNavBarProps {
   theme: ThemeMode;
   onSelectTheme: (theme: ThemeMode) => void;
   onOpenPalette: () => void;
+  onOpenAppearance: () => void;
   onEnterFocusMode: () => void;
   projects: ProjectData[];
   activeProjectId: string;
@@ -45,6 +47,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
   theme,
   onSelectTheme,
   onOpenPalette,
+  onOpenAppearance,
   onEnterFocusMode,
   projects,
   activeProjectId,
@@ -440,6 +443,31 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
 
       {/* Right: Actions, Themes, and Sync Status */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Customize Appearance & Background */}
+        <button
+          onClick={onOpenAppearance}
+          title="Customize Appearance (Background Wallpaper, Fonts, Themes, Colors)..."
+          style={{
+            padding: '6px',
+            borderRadius: '6px',
+            color: 'var(--text-secondary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+            e.currentTarget.style.color = 'var(--text-primary)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'transparent';
+            e.currentTarget.style.color = 'var(--text-secondary)';
+          }}
+        >
+          <Palette size={16} />
+        </button>
+
         {/* Fullscreen / Focus Mode */}
         <button
           onClick={onEnterFocusMode}

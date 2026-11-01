@@ -5,6 +5,11 @@
   --font-serif: 'Lora', Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
+  /* Custom geometry defaults */
+  --editor-font-size: 17px;
+  --editor-line-height: 1.85;
+  --editor-max-width: 720px;
+
   /* Transition speeds */
   --transition-fast: 0.15s ease;
   --transition-normal: 0.25s ease;
@@ -107,6 +112,68 @@
   --shadow-lg: 0 10px 25px rgba(56, 44, 30, 0.12);
 
   --dimmed-opacity: 0.18;
+}
+
+/* Theme: OLED (Pure Black) */
+[data-theme='oled'] {
+  --bg-app: #000000;
+  --bg-sidebar: #09090b;
+  --bg-surface: #121214;
+  --bg-card: #121214;
+  --bg-active: #202024;
+  --bg-hover: #18181b;
+  --bg-editor: #000000;
+  --bg-popover: #121214;
+
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-faint: #3f3f46;
+
+  --border-subtle: #1c1c1f;
+  --border-strong: #2e2e33;
+  --border-focus: #10b981;
+
+  --accent-primary: #10b981;
+  --accent-primary-hover: #059669;
+  --accent-secondary: #f97316;
+  --accent-pill: #064e3b;
+  --accent-pill-text: #6ee7b7;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.8);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.9);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.95);
+
+  --dimmed-opacity: 0.15;
+}
+
+/* Atmospheric wallpaper transparency when custom wallpaper is active */
+.has-custom-wallpaper[data-theme='paper'] {
+  --bg-app: rgba(250, 249, 245, 0.86);
+  --bg-sidebar: rgba(245, 244, 239, 0.88);
+  --bg-editor: rgba(250, 249, 245, 0.82);
+  --bg-surface: rgba(255, 255, 255, 0.90);
+}
+
+.has-custom-wallpaper[data-theme='night'] {
+  --bg-app: rgba(18, 19, 22, 0.86);
+  --bg-sidebar: rgba(24, 25, 29, 0.90);
+  --bg-editor: rgba(18, 19, 22, 0.82);
+  --bg-surface: rgba(30, 32, 37, 0.90);
+}
+
+.has-custom-wallpaper[data-theme='sepia'] {
+  --bg-app: rgba(242, 235, 217, 0.86);
+  --bg-sidebar: rgba(234, 226, 204, 0.90);
+  --bg-editor: rgba(242, 235, 217, 0.82);
+  --bg-surface: rgba(249, 245, 233, 0.92);
+}
+
+.has-custom-wallpaper[data-theme='oled'] {
+  --bg-app: rgba(0, 0, 0, 0.88);
+  --bg-sidebar: rgba(9, 9, 11, 0.92);
+  --bg-editor: rgba(0, 0, 0, 0.84);
+  --bg-surface: rgba(18, 18, 20, 0.92);
 }
 
 /* Base Styles */

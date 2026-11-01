@@ -11,7 +11,8 @@ import {
   FolderOpen,
   FileText,
   User,
-  Search
+  Search,
+  Palette
 } from 'lucide-react';
 
 interface CommandPaletteProps {
@@ -25,6 +26,7 @@ interface CommandPaletteProps {
   onToggleSplit: () => void;
   onEnterFocusMode: () => void;
   onSelectTheme: (theme: ThemeMode) => void;
+  onOpenAppearance: () => void;
   onOpenNewProject: () => void;
   onOpenProjectHub: () => void;
 }
@@ -40,6 +42,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onToggleSplit,
   onEnterFocusMode,
   onSelectTheme,
+  onOpenAppearance,
   onOpenNewProject,
   onOpenProjectHub,
 }) => {
@@ -111,6 +114,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       shortcut: 'F11',
       icon: <Eye size={14} />,
       action: () => { onEnterFocusMode(); onClose(); },
+    },
+    {
+      id: 'cmd-appearance',
+      title: 'Customize appearance (Background wallpaper, fonts, themes)...',
+      shortcut: 'Ctrl Shift A',
+      icon: <Palette size={14} />,
+      action: () => { onClose(); onOpenAppearance(); },
     },
     {
       id: 'cmd-theme-paper',

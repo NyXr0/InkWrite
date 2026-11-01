@@ -12,7 +12,8 @@ import {
   Moon, 
   Coffee,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  Palette
 } from 'lucide-react';
 
 interface ProjectStartWindowProps {
@@ -28,6 +29,7 @@ interface ProjectStartWindowProps {
   onDeleteProject: (projectId: string) => void;
   theme: ThemeMode;
   onSelectTheme: (theme: ThemeMode) => void;
+  onOpenAppearance?: () => void;
 }
 
 export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
@@ -37,6 +39,7 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
   onDeleteProject,
   theme,
   onSelectTheme,
+  onOpenAppearance,
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [title, setTitle] = useState('');
@@ -88,17 +91,53 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
       userSelect: 'none',
       position: 'relative',
     }}>
-      {/* Top Right Theme Selector */}
+      {/* Top Right Controls: Appearance & Themes */}
       <div style={{
         position: 'absolute',
         top: '24px',
         right: '28px',
         display: 'flex',
         alignItems: 'center',
-        backgroundColor: 'var(--bg-active)',
-        borderRadius: '6px',
-        padding: '2px',
+        gap: '8px',
       }}>
+        {onOpenAppearance && (
+          <button
+            onClick={onOpenAppearance}
+            title="Customize Appearance & Background (Wallpaper, Fonts, Colors)..."
+            style={{
+              padding: '6px 10px',
+              borderRadius: '6px',
+              backgroundColor: 'var(--bg-active)',
+              color: 'var(--text-secondary)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              border: '1px solid var(--border-subtle)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--bg-active)';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+            }}
+          >
+            <Palette size={14} />
+            <span>Appearance</span>
+          </button>
+        )}
+
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          backgroundColor: 'var(--bg-active)',
+          borderRadius: '6px',
+          padding: '2px',
+        }}>
         <button
           onClick={() => onSelectTheme('paper')}
           style={{
@@ -152,6 +191,7 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
           <Moon size={13} />
           <span>Night</span>
         </button>
+        </div>
       </div>
 
       {/* Main Start Window Container */}

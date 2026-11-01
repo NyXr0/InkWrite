@@ -1,4 +1,4 @@
-export type ThemeMode = 'paper' | 'night' | 'sepia';
+export type ThemeMode = 'paper' | 'night' | 'sepia' | 'oled';
 
 export type MainView = 'write' | 'corkboard' | 'timeline' | 'codex' | 'insights';
 

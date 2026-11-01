@@ -24,6 +24,10 @@ import { CommandPalette } from './components/palette/CommandPalette';
 import { ProjectHubModal } from './components/project/ProjectHubModal';
 import { NewProjectModal } from './components/project/NewProjectModal';
 import { ProjectStartWindow } from './components/project/ProjectStartWindow';
+import { AppearanceStorage } from './core/appearanceStorage';
+import { AppearanceSettings } from './types/appearance';
+import { AppearanceModal } from './components/settings/AppearanceModal';
+import { CustomBackdrop } from './components/layout/CustomBackdrop';
 import './styles/theme.css';
 
 export const App: React.FC = () => {
@@ -31,10 +35,18 @@ export const App: React.FC = () => {
   const [projects, setProjects] = useState<ProjectData[]>(() => ProjectStorage.loadAllProjects());
   const [activeProjectId, setActiveProjectId] = useState<string>(() => ProjectStorage.loadActiveProjectId());
 
+  // Appearance & Wallpaper settings (persisted across projects)
+  const [appearance, setAppearance] = useState<AppearanceSettings>(() => AppearanceStorage.load());
+  const [isAppearanceOpen, setIsAppearanceOpen] = useState<boolean>(false);
+
   // Project session state: only starts when user explicitly starts or opens a project
   const [isProjectOpen, setIsProjectOpen] = useState<boolean>(false);
 
-  const [theme, setTheme] = useState<ThemeMode>('paper');
+  const theme: ThemeMode = appearance.theme;
+  const handleSelectTheme = (newTheme: ThemeMode) => {
+    setAppearance((prev) => ({ ...prev, theme: newTheme }));
+  };
+
   const [currentView, setCurrentView] = useState<MainView>('write');
 
   // Active scene state
@@ -52,10 +64,11 @@ export const App: React.FC = () => {
     return projects.find((p) => p.settings.id === activeProjectId) || projects[0];
   }, [projects, activeProjectId]);
 
-  // Sync theme attribute with document root
+  // Sync appearance and theme attributes with DOM and storage
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    AppearanceStorage.save(appearance);
+    AppearanceStorage.applyToDOM(appearance);
+  }, [appearance]);
 
   // Persist collection and active project ID
   useEffect(() => {
@@ -571,35 +584,53 @@ export const App: React.FC = () => {
   // If no project has been started by the user yet, display the Project Start Window!
   if (!isProjectOpen) {
     return (
-      <ProjectStartWindow
-        projects={projects}
-        onOpenProject={handleOpenProject}
-        onCreateProject={handleCreateProject}
-        onDeleteProject={handleDeleteProject}
-        theme={theme}
-        onSelectTheme={setTheme}
-      />
+      <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+        <CustomBackdrop settings={appearance} />
+        <ProjectStartWindow
+          projects={projects}
+          onOpenProject={handleOpenProject}
+          onCreateProject={handleCreateProject}
+          onDeleteProject={handleDeleteProject}
+          theme={theme}
+          onSelectTheme={handleSelectTheme}
+          onOpenAppearance={() => setIsAppearanceOpen(true)}
+        />
+        <AppearanceModal
+          isOpen={isAppearanceOpen}
+          onClose={() => setIsAppearanceOpen(false)}
+          settings={appearance}
+          onChange={setAppearance}
+        />
+      </div>
     );
   }
 
   // Active Project Workspace
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      width: '100vw',
-      overflow: 'hidden',
-      backgroundColor: 'var(--bg-app)',
-    }}>
+    <div 
+      className={appearance.bgImage ? 'has-custom-wallpaper' : ''}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        width: '100vw',
+        overflow: 'hidden',
+        backgroundColor: appearance.bgImage ? 'transparent' : 'var(--bg-app)',
+        position: 'relative',
+      }}
+    >
+      {/* Background Wallpaper Layer */}
+      <CustomBackdrop settings={appearance} />
+
       {/* Top Navigation */}
       <TopNavBar
         currentView={currentView}
         onSelectView={setCurrentView}
         projectTitle={activeProject.settings.title}
         theme={theme}
-        onSelectTheme={setTheme}
+        onSelectTheme={handleSelectTheme}
         onOpenPalette={() => setIsPaletteOpen(true)}
+        onOpenAppearance={() => setIsAppearanceOpen(true)}
         onEnterFocusMode={() => setIsFocusMode(true)}
         projects={projects}
         activeProjectId={activeProjectId}
@@ -750,7 +781,8 @@ export const App: React.FC = () => {
         onTakeSnapshot={handleTakeSnapshot}
         onToggleSplit={() => setIsSplitView(!isSplitView)}
         onEnterFocusMode={() => setIsFocusMode(true)}
-        onSelectTheme={setTheme}
+        onSelectTheme={handleSelectTheme}
+        onOpenAppearance={() => setIsAppearanceOpen(true)}
         onOpenNewProject={() => setIsNewProjectOpen(true)}
         onOpenProjectHub={() => setIsProjectHubOpen(true)}
       />
@@ -774,6 +806,14 @@ export const App: React.FC = () => {
         isOpen={isNewProjectOpen}
         onClose={() => setIsNewProjectOpen(false)}
         onCreate={handleCreateProject}
+      />
+
+      {/* Appearance & Wallpaper Customization Modal */}
+      <AppearanceModal
+        isOpen={isAppearanceOpen}
+        onClose={() => setIsAppearanceOpen(false)}
+        settings={appearance}
+        onChange={setAppearance}
       />
     </div>
   );

@@ -63,16 +63,16 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     return EditorView.theme({
       '&': {
         height: '100%',
-        fontSize: '17px',
+        fontSize: 'var(--editor-font-size, 17px)',
         fontFamily: "var(--font-serif), Georgia, Cambria, serif",
         color: isDark ? '#e6e5e0' : isSepia ? '#382c1e' : '#1f1e1d',
         backgroundColor: 'transparent',
       },
       '.cm-content': {
         padding: '32px 0 120px 0',
-        lineHeight: '1.85',
-        caretColor: isDark ? '#6fd1ad' : '#2d5a4c',
-        maxWidth: '720px',
+        lineHeight: 'var(--editor-line-height, 1.85)',
+        caretColor: 'var(--accent-primary, #2d5a4c)',
+        maxWidth: 'var(--editor-max-width, 720px)',
         margin: '0 auto',
       },
       '.cm-line': {
