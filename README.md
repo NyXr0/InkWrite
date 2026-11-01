@@ -234,6 +234,4 @@ InkWell is built on the philosophy of **complete data sovereignty**:
 
 ## 📄 License
 
-**Proprietary & Non-Open Source (All Rights Reserved)**.
-
-Copyright © 2026 Inayat Ali. Unauthorized copying, distribution, modification, public display, or commercial use of this codebase, via any medium, is strictly prohibited without explicit prior written permission from the copyright holder. See [LICENSE](LICENSE) for complete terms.
+This project is open-source software licensed under the [MIT License](LICENSE).
