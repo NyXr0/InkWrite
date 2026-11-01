@@ -7,6 +7,9 @@ dist-ssr/
 # Tauri & Rust build artifacts
 src-tauri/target/
 
+# Windows release packages
+release/
+
 # Inkwell runtime cache
 .inkwell/
 *.sqlite

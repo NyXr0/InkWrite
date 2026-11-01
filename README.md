@@ -186,6 +186,31 @@ InkWell is built with high-contrast, eye-friendly palettes designed for marathon
    npm run preview
    ```
 
+6. **Package Windows Release Installer (.exe):**
+   ```bash
+   npm run package:windows
+   ```
+   Generates a standalone single-file GUI Windows installer (`release/InkWell-Setup-0.1.0.exe`) and portable distribution archive (`release/InkWell-0.1.0-Windows-Portable.zip`).
+
+---
+
+## 📦 Windows Release & Desktop Installation
+
+InkWell features a native Windows desktop pipeline:
+
+### 1. Standalone Windows GUI Setup (`InkWell-Setup-0.1.0.exe`)
+* **Zero Dependencies**: Self-extracting single-file GUI installer with official branded icon.
+* **Per-User Clean Installation**: Installs into `%LOCALAPPDATA%\Programs\InkWell` without requiring administrator privileges or UAC prompts.
+* **Desktop & Start Menu Integration**: Automatically creates Windows shortcuts with app icons.
+* **Add / Remove Programs Support**: Registers cleanly in the Windows Registry (`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\InkWell`) with a native uninstaller (`Uninstall-InkWell.exe`).
+
+### 2. Portable Edition (`InkWell-0.1.0-Windows-Portable.zip`)
+* Extract the `.zip` archive to any directory or thumb drive.
+* Run `InkWell.exe` to start the standalone, chromeless desktop window with local storage persistence.
+
+### 3. Automated GitHub Actions CI/CD
+* The `.github/workflows/release.yml` workflow automatically builds Windows desktop installers whenever a release tag is pushed (`git tag v0.1.0 && git push origin v0.1.0`) or triggered manually via `workflow_dispatch`.
+
 ---
 
 ## 📂 Project Architecture
