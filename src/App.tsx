@@ -21,56 +21,151 @@ import { InsightsView } from './components/insights/InsightsView';
 import { TimelineView } from './components/timeline/TimelineView';
 import { CodexView } from './components/codex/CodexView';
 import { CommandPalette } from './components/palette/CommandPalette';
+import { ProjectHubModal } from './components/project/ProjectHubModal';
+import { NewProjectModal } from './components/project/NewProjectModal';
 import './styles/theme.css';
 
 export const App: React.FC = () => {
-  // Load Project
-  const [project, setProject] = useState<ProjectData>(() => ProjectStorage.loadProject());
+  // Multi-project collection
+  const [projects, setProjects] = useState<ProjectData[]>(() => ProjectStorage.loadAllProjects());
+  const [activeProjectId, setActiveProjectId] = useState<string>(() => ProjectStorage.loadActiveProjectId());
+
   const [theme, setTheme] = useState<ThemeMode>('paper');
   const [currentView, setCurrentView] = useState<MainView>('write');
 
-  // Scene state
-  const [activeSceneId, setActiveSceneId] = useState<string>('scene-1-2'); // "The letter arrives"
-  const [referenceSceneId, setReferenceSceneId] = useState<string>('scene-1-1'); // "Dawn at the harbour"
+  // Active scene state
+  const [activeSceneId, setActiveSceneId] = useState<string>('scene-1-2');
+  const [referenceSceneId, setReferenceSceneId] = useState<string>('scene-1-1');
   const [isSplitView, setIsSplitView] = useState<boolean>(false);
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(false);
+  const [isProjectHubOpen, setIsProjectHubOpen] = useState<boolean>(false);
+  const [isNewProjectOpen, setIsNewProjectOpen] = useState<boolean>(false);
   const [selectedCodexId, setSelectedCodexId] = useState<string | undefined>(undefined);
 
-  // Sync theme with body data-theme attribute
+  // Sync active project
+  const activeProject = useMemo(() => {
+    return projects.find((p) => p.settings.id === activeProjectId) || projects[0];
+  }, [projects, activeProjectId]);
+
+  // Sync theme attribute with document root
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Persist project on changes
+  // Persist collection and active project ID
   useEffect(() => {
-    ProjectStorage.saveProject(project);
-  }, [project]);
+    ProjectStorage.saveAllProjects(projects);
+  }, [projects]);
 
-  // Get active scene
+  useEffect(() => {
+    if (activeProject) {
+      ProjectStorage.saveActiveProjectId(activeProject.settings.id);
+    }
+  }, [activeProject]);
+
+  // Auto-select first scene when project changes
+  useEffect(() => {
+    if (activeProject) {
+      const scenes = ProjectStorage.getAllScenes(activeProject.manuscript);
+      if (scenes.length > 0) {
+        // If activeSceneId is not in this project, set to first scene
+        const found = ProjectStorage.findScene(activeProject.manuscript, activeSceneId);
+        if (!found) {
+          setActiveSceneId(scenes[0].id);
+          if (scenes.length > 1) {
+            setReferenceSceneId(scenes[1].id);
+          }
+        }
+      }
+    }
+  }, [activeProjectId, activeProject]);
+
+  // Helper to update active project in collection
+  const updateActiveProject = (updater: (prevProj: ProjectData) => ProjectData) => {
+    setProjects((prevList) => {
+      return prevList.map((p) => {
+        if (p.settings.id === activeProject.settings.id) {
+          return updater(p);
+        }
+        return p;
+      });
+    });
+  };
+
+  // Switch to another project
+  const handleSelectProject = (projectId: string) => {
+    setActiveProjectId(projectId);
+    const targetProj = projects.find((p) => p.settings.id === projectId);
+    if (targetProj) {
+      const scenes = ProjectStorage.getAllScenes(targetProj.manuscript);
+      if (scenes.length > 0) {
+        setActiveSceneId(scenes[0].id);
+        setReferenceSceneId(scenes[1]?.id || scenes[0].id);
+      }
+    }
+    setIsSplitView(false);
+  };
+
+  // Create new project
+  const handleCreateProject = (params: {
+    title: string;
+    targetWords: number;
+    dailyGoalWords: number;
+    deadlineDate: string;
+    pov: string;
+  }) => {
+    const newProj = ProjectStorage.createProject(params);
+    setProjects((prev) => [newProj, ...prev]);
+    setActiveProjectId(newProj.settings.id);
+    const firstScene = ProjectStorage.getAllScenes(newProj.manuscript)[0];
+    if (firstScene) {
+      setActiveSceneId(firstScene.id);
+    }
+    setCurrentView('write');
+  };
+
+  // Delete project
+  const handleDeleteProject = (projectId: string) => {
+    if (projects.length <= 1) {
+      // Create fresh default project if deleting last
+      const replacement = ProjectStorage.createProject({ title: 'New Novel' });
+      setProjects([replacement]);
+      setActiveProjectId(replacement.settings.id);
+      return;
+    }
+
+    const remaining = projects.filter((p) => p.settings.id !== projectId);
+    setProjects(remaining);
+
+    if (activeProjectId === projectId) {
+      setActiveProjectId(remaining[0].settings.id);
+    }
+  };
+
+  // Active scene
   const activeScene = useMemo(() => {
-    return ProjectStorage.findScene(project.manuscript, activeSceneId) || 
-      ProjectStorage.getAllScenes(project.manuscript)[0];
-  }, [project.manuscript, activeSceneId]);
+    return ProjectStorage.findScene(activeProject.manuscript, activeSceneId) || 
+      ProjectStorage.getAllScenes(activeProject.manuscript)[0];
+  }, [activeProject.manuscript, activeSceneId]);
 
-  // Get reference scene for split view
+  // Reference scene for split view
   const referenceScene = useMemo(() => {
-    return ProjectStorage.findScene(project.manuscript, referenceSceneId) || null;
-  }, [project.manuscript, referenceSceneId]);
+    return ProjectStorage.findScene(activeProject.manuscript, referenceSceneId) || null;
+  }, [activeProject.manuscript, referenceSceneId]);
 
-  // All scenes list for quick search / stats
-  const allScenes = useMemo(() => {
-    return ProjectStorage.getAllScenes(project.manuscript);
-  }, [project.manuscript]);
-
+  // Total words
   const totalWords = useMemo(() => {
-    return ProjectStorage.countTotalWords(project.manuscript);
-  }, [project.manuscript]);
+    return ProjectStorage.countTotalWords(activeProject.manuscript);
+  }, [activeProject.manuscript]);
 
-  // Current folder for corkboard
+  const allScenes = useMemo(() => {
+    return ProjectStorage.getAllScenes(activeProject.manuscript);
+  }, [activeProject.manuscript]);
+
+  // Active folder for corkboard
   const activeFolder = useMemo(() => {
-    // Find folder containing active scene
-    for (const folder of project.manuscript) {
+    for (const folder of activeProject.manuscript) {
       for (const item of folder.children) {
         if (item.type === 'folder') {
           for (const scene of item.children) {
@@ -79,21 +174,19 @@ export const App: React.FC = () => {
         }
       }
     }
-    // Default to Chapter 1
-    const p1 = project.manuscript[0];
+    const p1 = activeProject.manuscript[0];
     if (p1 && p1.children[0] && p1.children[0].type === 'folder') {
       return p1.children[0] as FolderItem;
     }
-    return project.manuscript[0];
-  }, [project.manuscript, activeSceneId]);
+    return activeProject.manuscript[0];
+  }, [activeProject.manuscript, activeSceneId]);
 
-  // Handle scene content updates
+  // Update scene text content
   const handleUpdateSceneContent = (newContent: string) => {
-    // Recount words
     const words = newContent.trim() ? newContent.trim().split(/\s+/).length : 0;
-    const delta = words - (activeScene.wordCount || 0);
+    const delta = words - (activeScene?.wordCount || 0);
 
-    setProject((prev) => {
+    updateActiveProject((prev) => {
       const updateChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
         return items.map((it) => {
           if (it.type === 'scene' && it.id === activeSceneId) {
@@ -126,9 +219,9 @@ export const App: React.FC = () => {
     });
   };
 
-  // Handle scene status updates
+  // Update scene status
   const handleUpdateSceneStatus = (status: SceneStatus) => {
-    setProject((prev) => {
+    updateActiveProject((prev) => {
       const updateChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
         return items.map((it) => {
           if (it.type === 'scene' && it.id === activeSceneId) {
@@ -150,9 +243,9 @@ export const App: React.FC = () => {
     });
   };
 
-  // Handle scene summary updates
+  // Update scene summary
   const handleUpdateSceneSummary = (sceneId: string, summary: string) => {
-    setProject((prev) => {
+    updateActiveProject((prev) => {
       const updateChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
         return items.map((it) => {
           if (it.type === 'scene' && it.id === sceneId) {
@@ -174,9 +267,9 @@ export const App: React.FC = () => {
     });
   };
 
-  // Handle adding comments
+  // Add review comment
   const handleAddComment = (commentText: string) => {
-    setProject((prev) => {
+    updateActiveProject((prev) => {
       const updateChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
         return items.map((it) => {
           if (it.type === 'scene' && it.id === activeSceneId) {
@@ -212,9 +305,9 @@ export const App: React.FC = () => {
     });
   };
 
-  // Handle resolving comments
+  // Resolve comment
   const handleResolveComment = (commentId: string) => {
-    setProject((prev) => {
+    updateActiveProject((prev) => {
       const updateChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
         return items.map((it) => {
           if (it.type === 'scene' && it.id === activeSceneId) {
@@ -239,9 +332,9 @@ export const App: React.FC = () => {
     });
   };
 
-  // Handle taking snapshots
+  // Take snapshot
   const handleTakeSnapshot = () => {
-    setProject((prev) => {
+    updateActiveProject((prev) => {
       const updateChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
         return items.map((it) => {
           if (it.type === 'scene' && it.id === activeSceneId) {
@@ -276,7 +369,7 @@ export const App: React.FC = () => {
     });
   };
 
-  // Handle adding new scene
+  // Add scene
   const handleAddScene = (folderId: string) => {
     const newId = `scene-${Date.now()}`;
     const newScene: SceneItem = {
@@ -285,7 +378,7 @@ export const App: React.FC = () => {
       title: 'Untitled Scene',
       summary: '',
       status: 'idea',
-      pov: activeScene.pov || 'Mara',
+      pov: activeScene?.pov || 'Protagonist',
       wordCount: 0,
       wordTarget: 2000,
       comments: [],
@@ -293,7 +386,7 @@ export const App: React.FC = () => {
       content: '',
     };
 
-    setProject((prev) => {
+    updateActiveProject((prev) => {
       const updateChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
         return items.map((it) => {
           if (it.type === 'folder' && it.id === folderId) {
@@ -324,9 +417,9 @@ export const App: React.FC = () => {
     if (currentView !== 'write') setCurrentView('write');
   };
 
-  // Reorder scenes in folder from corkboard drag and drop
+  // Reorder scenes from corkboard
   const handleReorderScenes = (reordered: SceneItem[]) => {
-    setProject((prev) => {
+    updateActiveProject((prev) => {
       const updateFolderChildren = (folder: FolderItem): FolderItem => {
         if (folder.id === activeFolder.id) {
           const nonScenes = folder.children.filter((c) => c.type !== 'scene');
@@ -349,7 +442,7 @@ export const App: React.FC = () => {
     });
   };
 
-  // Add lore entry
+  // Add lore
   const handleAddLore = (category: LoreCategory) => {
     const newLore: LoreEntry = {
       id: `lore-${Date.now()}`,
@@ -360,16 +453,16 @@ export const App: React.FC = () => {
       content: `### New ${category}\n\nAdd details and notes here.`,
     };
 
-    setProject((prev) => ({
+    updateActiveProject((prev) => ({
       ...prev,
       lore: [newLore, ...prev.lore],
     }));
     setSelectedCodexId(newLore.id);
   };
 
-  // Update lore entry
+  // Update lore
   const handleUpdateLore = (updated: LoreEntry) => {
-    setProject((prev) => ({
+    updateActiveProject((prev) => ({
       ...prev,
       lore: prev.lore.map((l) => (l.id === updated.id ? updated : l)),
     }));
@@ -388,11 +481,16 @@ export const App: React.FC = () => {
       <TopNavBar
         currentView={currentView}
         onSelectView={setCurrentView}
-        projectTitle={project.settings.title}
+        projectTitle={activeProject.settings.title}
         theme={theme}
         onSelectTheme={setTheme}
         onOpenPalette={() => setIsPaletteOpen(true)}
         onEnterFocusMode={() => setIsFocusMode(true)}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onSelectProject={handleSelectProject}
+        onOpenProjectHub={() => setIsProjectHubOpen(true)}
+        onOpenNewProject={() => setIsNewProjectOpen(true)}
       />
 
       {/* Main Workspace Body */}
@@ -400,13 +498,13 @@ export const App: React.FC = () => {
         {/* Binder / Manuscript Tree (visible in Write, Corkboard) */}
         {currentView === 'write' && (
           <ManuscriptTree
-            manuscript={project.manuscript}
+            manuscript={activeProject.manuscript}
             activeSceneId={activeSceneId}
             onSelectScene={setActiveSceneId}
             onAddScene={handleAddScene}
             onOpenCodex={() => setCurrentView('codex')}
             totalWords={totalWords}
-            targetWords={project.settings.targetWords}
+            targetWords={activeProject.settings.targetWords}
           />
         )}
 
@@ -414,36 +512,44 @@ export const App: React.FC = () => {
         {currentView === 'write' && (
           <>
             <div style={{ flex: 1, height: '100%', overflow: 'hidden' }}>
-              <CodeMirrorEditor
-                scene={activeScene}
-                theme={theme}
-                loreList={project.lore}
-                referenceScene={referenceScene}
-                isSplitView={isSplitView}
-                onToggleSplit={() => setIsSplitView(!isSplitView)}
-                onEnterFocusMode={() => setIsFocusMode(true)}
-                onTakeSnapshot={handleTakeSnapshot}
-                onChangeContent={handleUpdateSceneContent}
-              />
+              {activeScene ? (
+                <CodeMirrorEditor
+                  scene={activeScene}
+                  theme={theme}
+                  loreList={activeProject.lore}
+                  referenceScene={referenceScene}
+                  isSplitView={isSplitView}
+                  onToggleSplit={() => setIsSplitView(!isSplitView)}
+                  onEnterFocusMode={() => setIsFocusMode(true)}
+                  onTakeSnapshot={handleTakeSnapshot}
+                  onChangeContent={handleUpdateSceneContent}
+                />
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
+                  No scenes yet. Create a scene from the binder on the left.
+                </div>
+              )}
             </div>
 
             {/* Right Inspector Panel */}
-            <InspectorPanel
-              scene={activeScene}
-              loreList={project.lore}
-              onUpdateStatus={handleUpdateSceneStatus}
-              onUpdateSummary={(sum) => handleUpdateSceneSummary(activeScene.id, sum)}
-              onAddComment={handleAddComment}
-              onResolveComment={handleResolveComment}
-              onOpenCodexEntry={(entry) => {
-                setSelectedCodexId(entry.id);
-                setCurrentView('codex');
-              }}
-            />
+            {activeScene && (
+              <InspectorPanel
+                scene={activeScene}
+                loreList={activeProject.lore}
+                onUpdateStatus={handleUpdateSceneStatus}
+                onUpdateSummary={(sum) => handleUpdateSceneSummary(activeScene.id, sum)}
+                onAddComment={handleAddComment}
+                onResolveComment={handleResolveComment}
+                onOpenCodexEntry={(entry) => {
+                  setSelectedCodexId(entry.id);
+                  setCurrentView('codex');
+                }}
+              />
+            )}
           </>
         )}
 
-        {currentView === 'corkboard' && (
+        {currentView === 'corkboard' && activeFolder && (
           <CorkboardView
             currentFolder={activeFolder}
             onSelectScene={(id) => {
@@ -458,7 +564,7 @@ export const App: React.FC = () => {
 
         {currentView === 'timeline' && (
           <TimelineView
-            events={project.timeline}
+            events={activeProject.timeline}
             onSelectScene={(id) => {
               setActiveSceneId(id);
               setCurrentView('write');
@@ -469,7 +575,7 @@ export const App: React.FC = () => {
 
         {currentView === 'codex' && (
           <CodexView
-            loreList={project.lore}
+            loreList={activeProject.lore}
             initialSelectedId={selectedCodexId}
             onUpdateLore={handleUpdateLore}
             onAddLore={handleAddLore}
@@ -481,15 +587,15 @@ export const App: React.FC = () => {
         )}
 
         {currentView === 'insights' && (
-          <InsightsView project={project} />
+          <InsightsView project={activeProject} />
         )}
       </div>
 
       {/* Bottom Status Bar */}
       <StatusBar
         sceneWordCount={activeScene ? activeScene.wordCount : 0}
-        sessionWordDelta={project.settings.todayWords}
-        streakDays={project.settings.currentStreakDays}
+        sessionWordDelta={activeProject.settings.todayWords}
+        streakDays={activeProject.settings.currentStreakDays}
         lastSnapshotText="last snapshot 14 min ago"
       />
 
@@ -497,8 +603,8 @@ export const App: React.FC = () => {
       {isFocusMode && activeScene && (
         <FocusModeView
           scene={activeScene}
-          todayWords={project.settings.todayWords}
-          dailyGoal={project.settings.dailyGoalWords}
+          todayWords={activeProject.settings.todayWords}
+          dailyGoal={activeProject.settings.dailyGoalWords}
           onExit={() => setIsFocusMode(false)}
           onChangeContent={handleUpdateSceneContent}
         />
@@ -509,7 +615,7 @@ export const App: React.FC = () => {
         isOpen={isPaletteOpen}
         onClose={() => setIsPaletteOpen(false)}
         scenes={allScenes}
-        loreList={project.lore}
+        loreList={activeProject.lore}
         onSelectScene={(id) => {
           setActiveSceneId(id);
           setCurrentView('write');
@@ -522,6 +628,29 @@ export const App: React.FC = () => {
         onToggleSplit={() => setIsSplitView(!isSplitView)}
         onEnterFocusMode={() => setIsFocusMode(true)}
         onSelectTheme={setTheme}
+        onOpenNewProject={() => setIsNewProjectOpen(true)}
+        onOpenProjectHub={() => setIsProjectHubOpen(true)}
+      />
+
+      {/* Project Hub Modal (Manage / Switch / Delete Projects) */}
+      <ProjectHubModal
+        isOpen={isProjectHubOpen}
+        onClose={() => setIsProjectHubOpen(false)}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onSelectProject={handleSelectProject}
+        onOpenNewProject={() => {
+          setIsProjectHubOpen(false);
+          setIsNewProjectOpen(true);
+        }}
+        onDeleteProject={handleDeleteProject}
+      />
+
+      {/* New Project Modal (Create Form) */}
+      <NewProjectModal
+        isOpen={isNewProjectOpen}
+        onClose={() => setIsNewProjectOpen(false)}
+        onCreate={handleCreateProject}
       />
     </div>
   );

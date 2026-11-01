@@ -1,5 +1,6 @@
-import React from 'react';
-import { MainView, ThemeMode } from '../../types/project';
+import React, { useState, useRef, useEffect } from 'react';
+import { MainView, ThemeMode, ProjectData } from '../../types/project';
+import { ProjectStorage } from '../../core/storage';
 import { 
   BookOpen, 
   LayoutGrid, 
@@ -11,7 +12,11 @@ import {
   Sun, 
   Moon, 
   Coffee,
-  Maximize2
+  Maximize2,
+  ChevronDown,
+  Plus,
+  FolderOpen,
+  Check
 } from 'lucide-react';
 
 interface TopNavBarProps {
@@ -22,6 +27,11 @@ interface TopNavBarProps {
   onSelectTheme: (theme: ThemeMode) => void;
   onOpenPalette: () => void;
   onEnterFocusMode: () => void;
+  projects: ProjectData[];
+  activeProjectId: string;
+  onSelectProject: (projectId: string) => void;
+  onOpenProjectHub: () => void;
+  onOpenNewProject: () => void;
 }
 
 export const TopNavBar: React.FC<TopNavBarProps> = ({
@@ -32,7 +42,25 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
   onSelectTheme,
   onOpenPalette,
   onEnterFocusMode,
+  projects,
+  activeProjectId,
+  onSelectProject,
+  onOpenProjectHub,
+  onOpenNewProject,
 }) => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <header style={{
       height: '48px',
@@ -45,7 +73,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
       userSelect: 'none',
       zIndex: 10,
     }}>
-      {/* Left: Branding & Project Name */}
+      {/* Left: Branding & Interactive Project Switcher */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '14px' }}>
           <span style={{ 
@@ -58,7 +86,152 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
             Inkwell
           </span>
           <span style={{ color: 'var(--text-faint)' }}>|</span>
-          <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{projectTitle}</span>
+
+          {/* Project Switcher Dropdown Anchor */}
+          <div ref={dropdownRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                backgroundColor: isDropdownOpen ? 'var(--bg-active)' : 'transparent',
+                color: 'var(--text-primary)',
+                fontWeight: 600,
+                fontSize: '14px',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                if (!isDropdownOpen) e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+              }}
+              onMouseLeave={(e) => {
+                if (!isDropdownOpen) e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              <span>{projectTitle}</span>
+              <ChevronDown size={14} color="var(--text-muted)" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {isDropdownOpen && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                marginTop: '4px',
+                width: '260px',
+                backgroundColor: 'var(--bg-popover)',
+                borderRadius: '8px',
+                border: '1px solid var(--border-subtle)',
+                boxShadow: 'var(--shadow-md)',
+                overflow: 'hidden',
+                zIndex: 100,
+                padding: '4px 0',
+              }}>
+                <div style={{
+                  padding: '6px 12px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  color: 'var(--text-muted)',
+                  borderBottom: '1px solid var(--border-subtle)',
+                }}>
+                  Your Projects ({projects.length})
+                </div>
+
+                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  {projects.map((proj) => {
+                    const isSelected = proj.settings.id === activeProjectId;
+                    const words = ProjectStorage.countTotalWords(proj.manuscript);
+
+                    return (
+                      <div
+                        key={proj.settings.id}
+                        onClick={() => {
+                          onSelectProject(proj.settings.id);
+                          setIsDropdownOpen(false);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          backgroundColor: isSelected ? 'var(--bg-active)' : 'transparent',
+                          fontSize: '13px',
+                          color: 'var(--text-primary)',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = isSelected ? 'var(--bg-active)' : 'transparent';
+                        }}
+                      >
+                        <div style={{ overflow: 'hidden' }}>
+                          <div style={{ fontWeight: isSelected ? 600 : 500, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                            {proj.settings.title}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            {words.toLocaleString()} words
+                          </div>
+                        </div>
+
+                        {isSelected && <Check size={14} color="var(--accent-primary)" />}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border-subtle)', marginTop: '4px', paddingTop: '4px' }}>
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      onOpenNewProject();
+                    }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      color: 'var(--accent-primary)',
+                      fontWeight: 500,
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    <Plus size={14} />
+                    <span>New Project...</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      onOpenProjectHub();
+                    }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      color: 'var(--text-secondary)',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    <FolderOpen size={14} />
+                    <span>Manage All Projects...</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* View Switcher Tabs */}

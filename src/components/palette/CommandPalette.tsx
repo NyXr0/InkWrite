@@ -2,17 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { SceneItem, LoreEntry, ThemeMode } from '../../types/project';
 import { 
   Camera, 
-  GitCompare, 
-  RotateCcw, 
-  FileText, 
-  User, 
-  MapPin, 
-  Search, 
   Columns2, 
   Eye, 
   Sun, 
   Moon, 
-  Coffee 
+  Coffee,
+  Plus,
+  FolderOpen,
+  FileText,
+  User,
+  Search
 } from 'lucide-react';
 
 interface CommandPaletteProps {
@@ -26,6 +25,8 @@ interface CommandPaletteProps {
   onToggleSplit: () => void;
   onEnterFocusMode: () => void;
   onSelectTheme: (theme: ThemeMode) => void;
+  onOpenNewProject: () => void;
+  onOpenProjectHub: () => void;
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -39,6 +40,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onToggleSplit,
   onEnterFocusMode,
   onSelectTheme,
+  onOpenNewProject,
+  onOpenProjectHub,
 }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -74,6 +77,20 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   // Build command items
   const commands = [
+    {
+      id: 'cmd-new-proj',
+      title: 'Create new novel project...',
+      shortcut: 'Ctrl Shift N',
+      icon: <Plus size={14} />,
+      action: () => { onClose(); onOpenNewProject(); },
+    },
+    {
+      id: 'cmd-hub-proj',
+      title: 'Manage all projects (Project Hub)...',
+      shortcut: 'Ctrl Shift O',
+      icon: <FolderOpen size={14} />,
+      action: () => { onClose(); onOpenProjectHub(); },
+    },
     {
       id: 'cmd-snap',
       title: 'Take snapshot of this scene',
@@ -116,9 +133,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   ];
 
   const filteredCommands = commands.filter((c) => c.title.toLowerCase().includes(q));
-
   const filteredScenes = scenes.filter((s) => s.title.toLowerCase().includes(q));
-
   const filteredLore = loreList.filter((l) => 
     l.name.toLowerCase().includes(q) || (l.role && l.role.toLowerCase().includes(q))
   );
