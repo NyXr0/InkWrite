@@ -335,8 +335,8 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
                   </div>
                   <input
                     type="range"
-                    min="0.05"
-                    max="0.80"
+                    min="0.10"
+                    max="1.0"
                     step="0.01"
                     value={settings.bgImageOpacity}
                     onChange={(e) => onChange({ ...settings, bgImageOpacity: parseFloat(e.target.value) })}

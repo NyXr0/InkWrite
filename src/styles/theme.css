@@ -148,42 +148,64 @@
 }
 
 /* Atmospheric wallpaper handling:
-   Keep text surfaces (--bg-editor, --bg-surface, --bg-card) 100% solid and opaque
-   so background changes NEVER compromise text readability or contrast. */
+   Keep the background visible all the time across the UI through frosted glass translucency,
+   while strictly protecting 100% normal text opacity and razor-sharp readability. */
 .has-custom-wallpaper[data-theme='paper'] {
-  --bg-app: rgba(250, 249, 245, 0.92);
-  --bg-sidebar: #f5f4ef;
-  --bg-editor: #faf9f5;
-  --bg-surface: #ffffff;
-  --bg-card: #ffffff;
+  --bg-app: rgba(250, 249, 245, 0.65);
+  --bg-sidebar: rgba(245, 244, 239, 0.78);
+  --bg-editor: rgba(250, 249, 245, 0.72);
+  --bg-surface: rgba(255, 255, 255, 0.85);
+  --bg-card: rgba(255, 255, 255, 0.90);
+  --text-primary: #121110;
+  --text-secondary: #484643;
+  --text-muted: #696761;
 }
 
 .has-custom-wallpaper[data-theme='night'] {
-  --bg-app: rgba(18, 19, 22, 0.92);
-  --bg-sidebar: #18191d;
-  --bg-editor: #121316;
-  --bg-surface: #1e2025;
-  --bg-card: #1e2025;
+  --bg-app: rgba(18, 19, 22, 0.68);
+  --bg-sidebar: rgba(24, 25, 29, 0.80);
+  --bg-editor: rgba(18, 19, 22, 0.74);
+  --bg-surface: rgba(30, 32, 37, 0.85);
+  --bg-card: rgba(30, 32, 37, 0.90);
+  --text-primary: #ffffff;
+  --text-secondary: #c4c6ce;
+  --text-muted: #9598a3;
 }
 
 .has-custom-wallpaper[data-theme='sepia'] {
-  --bg-app: rgba(242, 235, 217, 0.92);
-  --bg-sidebar: #eae2cc;
-  --bg-editor: #f2ebd9;
-  --bg-surface: #f9f5e9;
-  --bg-card: #f9f5e9;
+  --bg-app: rgba(242, 235, 217, 0.68);
+  --bg-sidebar: rgba(234, 226, 204, 0.80);
+  --bg-editor: rgba(242, 235, 217, 0.74);
+  --bg-surface: rgba(249, 245, 233, 0.86);
+  --bg-card: rgba(249, 245, 233, 0.90);
+  --text-primary: #281d11;
+  --text-secondary: #594735;
+  --text-muted: #7b6955;
 }
 
 .has-custom-wallpaper[data-theme='oled'] {
-  --bg-app: rgba(0, 0, 0, 0.94);
-  --bg-sidebar: #09090b;
-  --bg-editor: #000000;
-  --bg-surface: #121214;
-  --bg-card: #121214;
+  --bg-app: rgba(0, 0, 0, 0.72);
+  --bg-sidebar: rgba(9, 9, 11, 0.82);
+  --bg-editor: rgba(0, 0, 0, 0.76);
+  --bg-surface: rgba(18, 18, 20, 0.86);
+  --bg-card: rgba(18, 18, 20, 0.90);
+  --text-primary: #ffffff;
+  --text-secondary: #c8c8cf;
+  --text-muted: #9c9ca6;
+}
+
+/* Glassmorphism frosted blur on workspace panels so the background remains visible */
+.has-custom-wallpaper header,
+.has-custom-wallpaper aside,
+.has-custom-wallpaper footer,
+.has-custom-wallpaper .editor-canvas-root,
+.has-custom-wallpaper .editor-drafting-pane {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 /* Global text opacity and contrast rules:
-   Text opacity remains normal (100% opaque) and unaffected by background changes */
+   Text opacity remains strictly 100% normal (never dimmed by background) */
 .cm-editor,
 .cm-content,
 .cm-line,
@@ -195,7 +217,7 @@ span,
 h1, h2, h3, h4, h5, h6,
 article,
 section {
-  opacity: 1;
+  opacity: 1 !important;
 }
 
 .cm-content {
@@ -206,6 +228,19 @@ section {
 .cm-line {
   color: inherit !important;
   opacity: 1 !important;
+}
+
+/* Sub-pixel contrast protection for prose text over visible backgrounds */
+.has-custom-wallpaper[data-theme='paper'] .cm-content,
+.has-custom-wallpaper[data-theme='sepia'] .cm-content {
+  color: var(--text-primary) !important;
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.8);
+}
+
+.has-custom-wallpaper[data-theme='night'] .cm-content,
+.has-custom-wallpaper[data-theme='oled'] .cm-content {
+  color: var(--text-primary) !important;
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.9);
 }
 
 /* Base Styles */

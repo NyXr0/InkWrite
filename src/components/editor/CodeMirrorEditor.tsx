@@ -191,14 +191,17 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      backgroundColor: 'var(--bg-editor)',
-      overflow: 'hidden',
-      position: 'relative',
-    }}>
+    <div 
+      className="editor-canvas-root"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        backgroundColor: 'var(--bg-editor)',
+        overflow: 'hidden',
+        position: 'relative',
+      }}
+    >
       {/* Editor Toolbar */}
       <div style={{
         height: '40px',
@@ -315,19 +318,21 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         position: 'relative',
       }}>
         {/* Active Drafting Pane (Left) */}
-        <div style={{
-          flex: 1,
-          height: '100%',
-          overflowY: 'auto',
-          padding: '24px 32px 64px 32px',
-          borderRight: isSplitView ? '1px solid var(--border-subtle)' : 'none',
-          position: 'relative',
-          backgroundColor: 'var(--bg-editor)',
-        }}>
+        <div 
+          className="editor-drafting-pane"
+          style={{
+            flex: 1,
+            height: '100%',
+            overflowY: 'auto',
+            padding: '24px 32px 64px 32px',
+            borderRight: isSplitView ? '1px solid var(--border-subtle)' : 'none',
+            position: 'relative',
+            backgroundColor: 'transparent',
+          }}
+        >
           <div style={{ 
             maxWidth: 'var(--editor-max-width, 720px)', 
             margin: '0 auto',
-            backgroundColor: 'var(--bg-editor)',
             opacity: 1,
           }}>
             {/* Header / Scene Metadata Banner */}
@@ -388,13 +393,18 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
         {/* Pinned Reference Pane (Right) in Split View */}
         {isSplitView && referenceScene && (
-          <div style={{
-            flex: 1,
-            height: '100%',
-            overflowY: 'auto',
-            padding: '24px 32px 64px 32px',
-            backgroundColor: 'var(--bg-sidebar)',
-          }}>
+          <div 
+            className="editor-reference-pane"
+            style={{
+              flex: 1,
+              height: '100%',
+              overflowY: 'auto',
+              padding: '24px 32px 64px 32px',
+              backgroundColor: 'var(--bg-sidebar)',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
+            }}
+          >
             <div style={{ maxWidth: 'var(--editor-max-width, 720px)', margin: '0 auto', opacity: 1 }}>
               {/* Reference Header */}
               <div style={{

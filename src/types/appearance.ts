@@ -24,8 +24,8 @@ export const defaultAppearanceSettings: AppearanceSettings = {
   editorMaxWidth: 720,
   accentColor: '#2d5a4c',
   bgImage: null,
-  bgImageOpacity: 0.18,
-  bgImageBlur: 2,
+  bgImageOpacity: 0.85,
+  bgImageBlur: 0,
   bgImageFit: 'cover',
   surfaceTransparency: 15,
 };
