@@ -271,6 +271,59 @@ section {
   padding-left: 0px !important;
 }
 
+/* EPUB & Book Reader Chapter HTML Styling */
+.reading-chapter-html {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  text-align: inherit;
+}
+
+.reading-chapter-html p {
+  margin-bottom: 1.4em;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+.reading-chapter-html h1,
+.reading-chapter-html h2,
+.reading-chapter-html h3,
+.reading-chapter-html h4 {
+  font-family: var(--font-serif);
+  margin-top: 1.8em;
+  margin-bottom: 0.8em;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+
+.reading-chapter-html img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  display: block;
+  margin: 28px auto;
+  box-shadow: var(--shadow-md);
+}
+
+.reading-chapter-html blockquote {
+  border-left: 3px solid var(--accent-primary);
+  padding-left: 18px;
+  margin: 1.6em 0;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.reading-chapter-html pre,
+.reading-chapter-html code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background-color: var(--bg-surface);
+  border-radius: 4px;
+}
+
 /* Base Styles */
 * {
   box-sizing: border-box;

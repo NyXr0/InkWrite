@@ -3,6 +3,10 @@ import { ProjectData, SceneItem, FolderItem, ThemeMode, ReviewComment } from '..
 import { AppearanceSettings, CustomFont, PROSE_FONTS } from '../../types/appearance';
 import { CustomFontStorage } from '../../core/customFontStorage';
 import { ProjectStorage } from '../../core/storage';
+import { LibraryBook, EpubChapter } from '../../types/book';
+import { BookLibraryStorage } from '../../core/bookLibraryStorage';
+import { BookLibraryModal } from './BookLibraryModal';
+import { PdfReaderView } from './PdfReaderView';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -23,7 +27,8 @@ import {
   Plus, 
   ChevronRight,
   Clock,
-  FileText
+  FileText,
+  Library as LibraryIcon
 } from 'lucide-react';
 
 interface ReadingModeViewProps {
@@ -74,6 +79,36 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
     return ProjectStorage.getAllScenes(project.manuscript);
   }, [project.manuscript]);
 
+  // Pre-existing book library state (null = reading active project manuscript)
+  const [activeBook, setActiveBook] = useState<LibraryBook | null>(null);
+  const [isLibraryOpen, setIsLibraryOpen] = useState<boolean>(false);
+  const [epubChapterIndex, setEpubChapterIndex] = useState<number>(0);
+
+  const activeEpubChapter = useMemo<EpubChapter | null>(() => {
+    if (!activeBook || !activeBook.epubChapters || activeBook.epubChapters.length === 0) return null;
+    return activeBook.epubChapters[epubChapterIndex] || activeBook.epubChapters[0];
+  }, [activeBook, epubChapterIndex]);
+
+  const handleSelectBook = (book: LibraryBook) => {
+    setActiveBook(book);
+    setEpubChapterIndex(book.currentChapterIndex || 0);
+    containerRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
+  const handleSelectProjectManuscript = () => {
+    setActiveBook(null);
+    containerRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
+  const goToEpubChapter = (index: number) => {
+    if (!activeBook || !activeBook.epubChapters) return;
+    const clamped = Math.max(0, Math.min(index, activeBook.epubChapters.length - 1));
+    setEpubChapterIndex(clamped);
+    containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    const percent = Math.round(((clamped + 1) / activeBook.epubChapters.length) * 100);
+    BookLibraryStorage.updateProgress(activeBook.id, clamped, percent).catch(() => {});
+  };
+
   const activeScene = useMemo(() => {
     return allScenes.find((s) => s.id === activeSceneId) || allScenes[0] || null;
   }, [allScenes, activeSceneId]);
@@ -97,6 +132,12 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
       if (totalScroll > 0) {
         const current = (el.scrollTop / totalScroll) * 100;
         setScrollProgress(Math.min(100, Math.max(0, current)));
+        if (activeBook && activeBook.epubChapters && activeBook.epubChapters.length > 0) {
+          const basePct = (epubChapterIndex / activeBook.epubChapters.length) * 100;
+          const insidePct = current / activeBook.epubChapters.length;
+          const totalPct = Math.min(100, Math.round(basePct + insidePct));
+          BookLibraryStorage.updateProgress(activeBook.id, epubChapterIndex, totalPct, el.scrollTop).catch(() => {});
+        }
       } else {
         setScrollProgress(0);
       }
@@ -104,7 +145,7 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
 
     el.addEventListener('scroll', handleScroll);
     return () => el.removeEventListener('scroll', handleScroll);
-  }, [activeSceneId, isContinuousMode]);
+  }, [activeSceneId, isContinuousMode, activeBook, epubChapterIndex]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -115,7 +156,12 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
         e.preventDefault();
         onExit();
       } else if (e.key === 'ArrowRight' || e.key === 'PageDown') {
-        if (!isContinuousMode && activeSceneIndex < allScenes.length - 1) {
+        if (activeBook && activeBook.epubChapters) {
+          if (!isContinuousMode && epubChapterIndex < activeBook.epubChapters.length - 1) {
+            e.preventDefault();
+            goToEpubChapter(epubChapterIndex + 1);
+          }
+        } else if (!isContinuousMode && activeSceneIndex < allScenes.length - 1) {
           e.preventDefault();
           const next = allScenes[activeSceneIndex + 1];
           setActiveSceneId(next.id);
@@ -123,7 +169,12 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
           containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
         }
       } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
-        if (!isContinuousMode && activeSceneIndex > 0) {
+        if (activeBook && activeBook.epubChapters) {
+          if (!isContinuousMode && epubChapterIndex > 0) {
+            e.preventDefault();
+            goToEpubChapter(epubChapterIndex - 1);
+          }
+        } else if (!isContinuousMode && activeSceneIndex > 0) {
           e.preventDefault();
           const prev = allScenes[activeSceneIndex - 1];
           setActiveSceneId(prev.id);
@@ -135,7 +186,7 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeSceneIndex, allScenes, isContinuousMode, noteDialogOpen, onExit, onSelectScene]);
+  }, [activeSceneIndex, allScenes, isContinuousMode, noteDialogOpen, onExit, onSelectScene, activeBook, epubChapterIndex]);
 
   // Fullscreen toggle helper
   const toggleFullscreen = () => {
@@ -229,6 +280,27 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
 
   const readingTimeMinutes = Math.max(1, Math.ceil((activeScene?.wordCount || 0) / 220));
 
+  // If reading a PDF book, render dedicated PDF Reader
+  if (activeBook && activeBook.format === 'pdf') {
+    return (
+      <>
+        <PdfReaderView
+          book={activeBook}
+          onBackToLibrary={() => setIsLibraryOpen(true)}
+          onExitReading={onExit}
+        />
+        <BookLibraryModal
+          isOpen={isLibraryOpen}
+          onClose={() => setIsLibraryOpen(false)}
+          project={project}
+          activeBookId={activeBook?.id || null}
+          onSelectProjectManuscript={handleSelectProjectManuscript}
+          onSelectBook={handleSelectBook}
+        />
+      </>
+    );
+  }
+
   return (
     <div
       style={{
@@ -274,7 +346,7 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
         userSelect: 'none',
         zIndex: 20,
       }}>
-        {/* Left: Back & Table of Contents */}
+        {/* Left: Back, Table of Contents & Bookshelf */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             onClick={onExit}
@@ -324,6 +396,27 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
             <List size={16} />
             <span>Contents</span>
           </button>
+
+          <button
+            onClick={() => setIsLibraryOpen(true)}
+            title="Open Bookshelf & Library (Switch to another book or import EPUB/PDF/TXT)"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 11px',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: 500,
+              backgroundColor: activeBook ? 'var(--accent-pill)' : 'var(--bg-surface)',
+              color: activeBook ? 'var(--accent-primary)' : 'var(--text-primary)',
+              border: '1px solid var(--border-subtle)',
+              cursor: 'pointer',
+            }}
+          >
+            <LibraryIcon size={15} />
+            <span>Bookshelf</span>
+          </button>
         </div>
 
         {/* Center: Novel Title & Current Section */}
@@ -334,16 +427,41 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
           fontSize: '13px',
           fontWeight: 600,
           color: 'var(--text-primary)',
-          maxWidth: '400px',
+          maxWidth: '460px',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
         }}>
-          <span style={{ fontFamily: 'var(--font-serif)' }}>{project.settings.title}</span>
-          <span style={{ color: 'var(--text-muted)' }}>•</span>
-          <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
-            {isContinuousMode ? 'Continuous Reading' : activeScene?.title}
-          </span>
+          {activeBook ? (
+            <>
+              <span style={{
+                fontSize: '9px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                padding: '2px 5px',
+                borderRadius: '3px',
+                backgroundColor: activeBook.format === 'epub' ? '#3b82f620' : '#10b98120',
+                color: activeBook.format === 'epub' ? '#3b82f6' : '#10b981',
+                border: `1px solid ${activeBook.format === 'epub' ? '#3b82f640' : '#10b98140'}`,
+                flexShrink: 0,
+              }}>
+                {activeBook.format.toUpperCase()}
+              </span>
+              <span style={{ fontFamily: 'var(--font-serif)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{activeBook.title}</span>
+              <span style={{ color: 'var(--text-muted)' }}>•</span>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {isContinuousMode ? 'Whole Book' : (activeEpubChapter?.title || 'Chapter 1')}
+              </span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontFamily: 'var(--font-serif)' }}>{project.settings.title}</span>
+              <span style={{ color: 'var(--text-muted)' }}>•</span>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
+                {isContinuousMode ? 'Continuous Reading' : activeScene?.title}
+              </span>
+            </>
+          )}
         </div>
 
         {/* Right: Controls, Reading Settings, Mode Toggle, Fullscreen */}
@@ -351,7 +469,7 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
           {/* Continuous Novel Mode Toggle */}
           <button
             onClick={() => setIsContinuousMode(!isContinuousMode)}
-            title={isContinuousMode ? 'Switch to single-scene reading' : 'Read entire novel continuously'}
+            title={isContinuousMode ? 'Switch to single-chapter reading' : 'Read entire book continuously'}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -367,13 +485,13 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
             }}
           >
             <BookOpen size={14} />
-            <span>{isContinuousMode ? 'Whole Novel' : 'Single Scene'}</span>
+            <span>{isContinuousMode ? (activeBook ? 'Whole Book' : 'Whole Novel') : (activeBook ? 'Single Chapter' : 'Single Scene')}</span>
           </button>
 
           {/* Quick Reader Note */}
           <button
             onClick={() => setNoteDialogOpen(true)}
-            title="Leave a reader note or typo flag on this scene"
+            title="Leave a reader note or bookmark"
             style={{
               padding: '6px',
               borderRadius: '6px',
@@ -407,26 +525,48 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
             <Sliders size={16} />
           </button>
 
-          {/* Edit in Writer button */}
-          <button
-            onClick={() => onEditScene(activeSceneId)}
-            title="Edit this scene in the writer"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '5px 12px',
-              borderRadius: '6px',
-              fontSize: '12px',
-              fontWeight: 600,
-              backgroundColor: 'var(--accent-primary)',
-              color: '#ffffff',
-              cursor: 'pointer',
-            }}
-          >
-            <Edit3 size={13} />
-            <span>Edit</span>
-          </button>
+          {/* Edit in Writer or Switch button */}
+          {!activeBook ? (
+            <button
+              onClick={() => onEditScene(activeSceneId)}
+              title="Edit this scene in the writer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 12px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 600,
+                backgroundColor: 'var(--accent-primary)',
+                color: '#ffffff',
+                cursor: 'pointer',
+              }}
+            >
+              <Edit3 size={13} />
+              <span>Edit</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsLibraryOpen(true)}
+              title="Open Bookshelf & Library"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 12px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 600,
+                backgroundColor: 'var(--accent-primary)',
+                color: '#ffffff',
+                cursor: 'pointer',
+              }}
+            >
+              <LibraryIcon size={13} />
+              <span>Bookshelf</span>
+            </button>
+          )}
 
           {/* Fullscreen Toggle */}
           <button
@@ -480,54 +620,105 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
             </div>
 
             <div style={{ padding: '8px' }}>
-              {allScenes.map((s, idx) => {
-                const isSelected = s.id === activeSceneId;
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => {
-                      setActiveSceneId(s.id);
-                      onSelectScene(s.id);
-                      if (!isContinuousMode) {
-                        containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-                      } else {
-                        const el = document.getElementById(`reading-scene-${s.id}`);
-                        el?.scrollIntoView({ behavior: 'smooth' });
-                      }
-                    }}
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      backgroundColor: isSelected ? 'var(--bg-active)' : 'transparent',
-                      color: isSelected ? 'var(--accent-primary)' : 'var(--text-primary)',
-                      textAlign: 'left',
-                      marginBottom: '2px',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                        {idx + 1}.
+              {activeBook && activeBook.epubChapters ? (
+                activeBook.epubChapters.map((ch, idx) => {
+                  const isSelected = idx === epubChapterIndex;
+                  return (
+                    <button
+                      key={ch.id}
+                      onClick={() => {
+                        goToEpubChapter(idx);
+                        if (isContinuousMode) {
+                          const el = document.getElementById(`reading-epub-chapter-${ch.id}`);
+                          el?.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        backgroundColor: isSelected ? 'var(--bg-active)' : 'transparent',
+                        color: isSelected ? 'var(--accent-primary)' : 'var(--text-primary)',
+                        textAlign: 'left',
+                        marginBottom: '2px',
+                        cursor: 'pointer',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                          {idx + 1}.
+                        </span>
+                        <span style={{ fontSize: '13px', fontWeight: isSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {ch.title}
+                        </span>
+                      </div>
+                      {ch.wordCount ? (
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          {ch.wordCount}w
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })
+              ) : (
+                allScenes.map((s, idx) => {
+                  const isSelected = s.id === activeSceneId;
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        setActiveSceneId(s.id);
+                        onSelectScene(s.id);
+                        if (!isContinuousMode) {
+                          containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                        } else {
+                          const el = document.getElementById(`reading-scene-${s.id}`);
+                          el?.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        backgroundColor: isSelected ? 'var(--bg-active)' : 'transparent',
+                        color: isSelected ? 'var(--accent-primary)' : 'var(--text-primary)',
+                        textAlign: 'left',
+                        marginBottom: '2px',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                          {idx + 1}.
+                        </span>
+                        <span style={{ fontSize: '13px', fontWeight: isSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {s.title}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {s.wordCount}w
                       </span>
-                      <span style={{ fontSize: '13px', fontWeight: isSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {s.title}
-                      </span>
-                    </div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      {s.wordCount}w
-                    </span>
-                  </button>
-                );
-              })}
+                    </button>
+                  );
+                })
+              )}
             </div>
           </aside>
         )}
@@ -779,8 +970,234 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
             lineHeight: lineHeight,
             color: 'var(--text-primary)',
           }}>
+            {/* ======================================================== */}
+            {/* Case A: Reading an Imported Book (EPUB / TXT / MD)       */}
+            {/* ======================================================== */}
+            {activeBook && activeBook.epubChapters && (
+              <>
+                {/* Single Chapter Mode */}
+                {!isContinuousMode && activeEpubChapter && (
+                  <article key={activeEpubChapter.id} style={{ position: 'relative' }}>
+                    <header style={{ textAlign: 'center', marginBottom: '48px' }}>
+                      <div style={{
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.12em',
+                        color: 'var(--accent-primary)',
+                        marginBottom: '8px',
+                      }}>
+                        {activeBook.title} • {activeBook.author}
+                      </div>
+
+                      <h1 style={{
+                        fontSize: '34px',
+                        fontWeight: 700,
+                        letterSpacing: '-0.02em',
+                        lineHeight: '1.25',
+                        marginBottom: '12px',
+                      }}>
+                        {activeEpubChapter.title}
+                      </h1>
+
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '12px',
+                        fontSize: '12px',
+                        color: 'var(--text-muted)',
+                        fontFamily: 'var(--font-sans)',
+                      }}>
+                        <span>Chapter {epubChapterIndex + 1} of {activeBook.epubChapters.length}</span>
+                        {activeEpubChapter.wordCount ? (
+                          <>
+                            <span>•</span>
+                            <span>{activeEpubChapter.wordCount.toLocaleString()} words</span>
+                          </>
+                        ) : null}
+                        <span>•</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={12} />
+                          ~{Math.max(1, Math.ceil((activeEpubChapter.wordCount || 500) / 220))} min read
+                        </span>
+                      </div>
+
+                      <div style={{
+                        fontSize: '18px',
+                        color: 'var(--accent-primary)',
+                        margin: '24px 0',
+                        letterSpacing: '0.3em',
+                        opacity: 0.8,
+                      }}>
+                        ❧ ❧ ❧
+                      </div>
+                    </header>
+
+                    {/* Chapter HTML / Content */}
+                    <div 
+                      className="reading-chapter-html"
+                      dangerouslySetInnerHTML={{ __html: activeEpubChapter.contentHtml }}
+                      style={{ fontSize: 'inherit', lineHeight: 'inherit' }}
+                    />
+
+                    {/* Chapter Bottom Navigation */}
+                    <footer style={{
+                      marginTop: '64px',
+                      paddingTop: '24px',
+                      borderTop: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: '13px',
+                    }}>
+                      {epubChapterIndex > 0 ? (
+                        <button
+                          onClick={() => goToEpubChapter(epubChapterIndex - 1)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <ArrowLeft size={14} />
+                          <span>{activeBook.epubChapters[epubChapterIndex - 1].title}</span>
+                        </button>
+                      ) : <div />}
+
+                      <button
+                        onClick={() => setIsLibraryOpen(true)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          color: 'var(--accent-primary)',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <LibraryIcon size={14} />
+                        <span>Bookshelf</span>
+                      </button>
+
+                      {epubChapterIndex < activeBook.epubChapters.length - 1 ? (
+                        <button
+                          onClick={() => goToEpubChapter(epubChapterIndex + 1)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <span>{activeBook.epubChapters[epubChapterIndex + 1].title}</span>
+                          <ArrowRight size={14} />
+                        </button>
+                      ) : <div />}
+                    </footer>
+                  </article>
+                )}
+
+                {/* Continuous Whole Book Mode */}
+                {isContinuousMode && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '80px' }}>
+                    <div style={{ textAlign: 'center', paddingBottom: '32px', borderBottom: '2px solid var(--border-subtle)' }}>
+                      <div style={{ fontSize: '12px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--accent-primary)', marginBottom: '8px' }}>
+                        {activeBook.format.toUpperCase()} Reader
+                      </div>
+                      <h1 style={{ fontSize: '38px', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '8px' }}>
+                        {activeBook.title}
+                      </h1>
+                      <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
+                        By {activeBook.author} • {activeBook.epubChapters.length} chapters
+                      </p>
+                    </div>
+
+                    {activeBook.epubChapters.map((ch, idx) => (
+                      <article key={ch.id} id={`reading-epub-chapter-${ch.id}`} style={{ position: 'relative' }}>
+                        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.08em' }}>
+                            Chapter {idx + 1}
+                          </span>
+                          <h2 style={{ fontSize: '28px', fontWeight: 600, margin: '6px 0 12px 0' }}>
+                            {ch.title}
+                          </h2>
+                          <div style={{
+                            fontSize: '15px',
+                            color: 'var(--accent-primary)',
+                            letterSpacing: '0.25em',
+                            opacity: 0.8,
+                          }}>
+                            ✦ ✦ ✦
+                          </div>
+                        </div>
+
+                        <div
+                          className="reading-chapter-html"
+                          dangerouslySetInnerHTML={{ __html: ch.contentHtml }}
+                          style={{ fontSize: 'inherit', lineHeight: 'inherit' }}
+                        />
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ======================================================== */}
+            {/* Case B: Reading Project Manuscript                      */}
+            {/* ======================================================== */}
+            {!activeBook && allScenes.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '80px 20px', maxWidth: '480px', margin: '0 auto' }}>
+                <BookOpen size={48} style={{ color: 'var(--text-muted)', margin: '0 auto 16px auto' }} />
+                <h2 style={{ fontSize: '22px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-primary)' }}>
+                  Your Manuscript is Empty
+                </h2>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '24px' }}>
+                  You haven't written any scenes in this project yet. You can start drafting in the Write tab, or open your Bookshelf to import and read an existing EPUB, PDF, or TXT book!
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                  <button
+                    onClick={() => setIsLibraryOpen(true)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--accent-primary)',
+                      color: '#ffffff',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <LibraryIcon size={16} />
+                    <span>Open Bookshelf & Library</span>
+                  </button>
+                  <button
+                    onClick={onExit}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--bg-surface)',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid var(--border-subtle)',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Go to Writer
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Single Scene Mode */}
-            {!isContinuousMode && activeScene && (
+            {!activeBook && !isContinuousMode && activeScene && (
               <article key={activeScene.id} style={{ position: 'relative' }}>
                 {/* Book Header */}
                 <header style={{ textAlign: 'center', marginBottom: '48px' }}>
@@ -914,7 +1331,7 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
             )}
 
             {/* Continuous Novel Reading Mode (All scenes assembled sequentially) */}
-            {isContinuousMode && (
+            {!activeBook && isContinuousMode && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '80px' }}>
                 <div style={{ textAlign: 'center', paddingBottom: '32px', borderBottom: '2px solid var(--border-subtle)' }}>
                   <div style={{ fontSize: '12px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--accent-primary)', marginBottom: '8px' }}>
@@ -1043,6 +1460,16 @@ export const ReadingModeView: React.FC<ReadingModeViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Book Library & Bookshelf Modal */}
+      <BookLibraryModal
+        isOpen={isLibraryOpen}
+        onClose={() => setIsLibraryOpen(false)}
+        project={project}
+        activeBookId={activeBook?.id || null}
+        onSelectProjectManuscript={handleSelectProjectManuscript}
+        onSelectBook={handleSelectBook}
+      />
     </div>
   );
 };
