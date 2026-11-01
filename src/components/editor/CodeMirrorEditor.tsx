@@ -12,7 +12,8 @@ import {
   Columns2, 
   Eye, 
   X,
-  FileText
+  FileText,
+  BookOpen
 } from 'lucide-react';
 
 interface CodeMirrorEditorProps {
@@ -23,6 +24,7 @@ interface CodeMirrorEditorProps {
   isSplitView: boolean;
   onToggleSplit: () => void;
   onEnterFocusMode: () => void;
+  onOpenReadingMode?: () => void;
   onTakeSnapshot: () => void;
   onChangeContent: (content: string) => void;
   onSelectLoreFromPopup?: (lore: LoreEntry) => void;
@@ -36,6 +38,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   isSplitView,
   onToggleSplit,
   onEnterFocusMode,
+  onOpenReadingMode,
   onTakeSnapshot,
   onChangeContent,
 }) => {
@@ -269,8 +272,37 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
           </button>
         </div>
 
-        {/* Right: View Modes (Split, Focus) */}
+        {/* Right: View Modes (Split, Focus, Read) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {onOpenReadingMode && (
+            <button
+              onClick={onOpenReadingMode}
+              title="Enter Book Reading Mode (Ctrl+Shift+R)"
+              style={{
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontWeight: 500,
+                color: 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
+            >
+              <BookOpen size={14} />
+              <span>Read</span>
+            </button>
+          )}
+
           <button
             onClick={onToggleSplit}
             title="Toggle Split View (Side-by-side)"

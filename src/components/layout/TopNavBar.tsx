@@ -19,7 +19,8 @@ import {
   Check,
   Trash2,
   LogOut,
-  Palette
+  Palette,
+  PenTool
 } from 'lucide-react';
 
 interface TopNavBarProps {
@@ -328,8 +329,26 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
               color: currentView === 'write' ? 'var(--text-primary)' : 'var(--text-secondary)',
             }}
           >
-            <BookOpen size={15} />
+            <PenTool size={15} />
             <span>Write</span>
+          </button>
+
+          <button
+            onClick={() => onSelectView('read')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: 500,
+              backgroundColor: currentView === 'read' ? 'var(--bg-active)' : 'transparent',
+              color: currentView === 'read' ? 'var(--text-primary)' : 'var(--text-secondary)',
+            }}
+          >
+            <BookOpen size={15} />
+            <span>Read</span>
           </button>
 
           <button

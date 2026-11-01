@@ -12,7 +12,8 @@ import {
   FileText,
   User,
   Search,
-  Palette
+  Palette,
+  BookOpen
 } from 'lucide-react';
 
 interface CommandPaletteProps {
@@ -25,6 +26,7 @@ interface CommandPaletteProps {
   onTakeSnapshot: () => void;
   onToggleSplit: () => void;
   onEnterFocusMode: () => void;
+  onOpenReadingMode?: () => void;
   onSelectTheme: (theme: ThemeMode) => void;
   onOpenAppearance: () => void;
   onOpenNewProject: () => void;
@@ -41,6 +43,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onTakeSnapshot,
   onToggleSplit,
   onEnterFocusMode,
+  onOpenReadingMode,
   onSelectTheme,
   onOpenAppearance,
   onOpenNewProject,
@@ -114,6 +117,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       shortcut: 'F11',
       icon: <Eye size={14} />,
       action: () => { onEnterFocusMode(); onClose(); },
+    },
+    {
+      id: 'cmd-read',
+      title: 'Enter book reading mode',
+      shortcut: 'Ctrl Shift R',
+      icon: <BookOpen size={14} />,
+      action: () => { if (onOpenReadingMode) onOpenReadingMode(); onClose(); },
     },
     {
       id: 'cmd-appearance',

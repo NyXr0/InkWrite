@@ -20,6 +20,7 @@ import { FocusModeView } from './components/focus/FocusModeView';
 import { InsightsView } from './components/insights/InsightsView';
 import { TimelineView } from './components/timeline/TimelineView';
 import { CodexView } from './components/codex/CodexView';
+import { ReadingModeView } from './components/reading/ReadingModeView';
 import { CommandPalette } from './components/palette/CommandPalette';
 import { ProjectHubModal } from './components/project/ProjectHubModal';
 import { NewProjectModal } from './components/project/NewProjectModal';
@@ -679,6 +680,7 @@ export const App: React.FC = () => {
                   isSplitView={isSplitView}
                   onToggleSplit={() => setIsSplitView(!isSplitView)}
                   onEnterFocusMode={() => setIsFocusMode(true)}
+                  onOpenReadingMode={() => setCurrentView('read')}
                   onTakeSnapshot={handleTakeSnapshot}
                   onChangeContent={handleUpdateSceneContent}
                 />
@@ -751,6 +753,22 @@ export const App: React.FC = () => {
         {currentView === 'insights' && (
           <InsightsView project={activeProject} />
         )}
+
+        {currentView === 'read' && (
+          <ReadingModeView
+            project={activeProject}
+            initialSceneId={activeSceneId}
+            onSelectScene={(id) => setActiveSceneId(id)}
+            onEditScene={(id) => {
+              setActiveSceneId(id);
+              setCurrentView('write');
+            }}
+            onExit={() => setCurrentView('write')}
+            appearance={appearance}
+            onUpdateAppearance={setAppearance}
+            onAddComment={handleAddComment}
+          />
+        )}
       </div>
 
       {/* Bottom Status Bar */}
@@ -789,6 +807,7 @@ export const App: React.FC = () => {
         onTakeSnapshot={handleTakeSnapshot}
         onToggleSplit={() => setIsSplitView(!isSplitView)}
         onEnterFocusMode={() => setIsFocusMode(true)}
+        onOpenReadingMode={() => setCurrentView('read')}
         onSelectTheme={handleSelectTheme}
         onOpenAppearance={() => setIsAppearanceOpen(true)}
         onOpenNewProject={() => setIsNewProjectOpen(true)}
