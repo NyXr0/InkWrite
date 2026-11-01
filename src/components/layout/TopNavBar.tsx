@@ -17,7 +17,8 @@ import {
   Plus,
   FolderOpen,
   Check,
-  Trash2
+  Trash2,
+  LogOut
 } from 'lucide-react';
 
 interface TopNavBarProps {
@@ -34,6 +35,7 @@ interface TopNavBarProps {
   onOpenProjectHub: () => void;
   onOpenNewProject: () => void;
   onDeleteProject: (projectId: string) => void;
+  onCloseProject: () => void;
 }
 
 export const TopNavBar: React.FC<TopNavBarProps> = ({
@@ -50,6 +52,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
   onOpenProjectHub,
   onOpenNewProject,
   onDeleteProject,
+  onCloseProject,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -269,6 +272,36 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
                   >
                     <FolderOpen size={14} />
                     <span>Manage All Projects...</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      onCloseProject();
+                    }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      color: 'var(--text-muted)',
+                      textAlign: 'left',
+                      borderTop: '1px dashed var(--border-subtle)',
+                      marginTop: '4px',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                      e.currentTarget.style.color = 'var(--text-primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.color = 'var(--text-muted)';
+                    }}
+                  >
+                    <LogOut size={14} />
+                    <span>Close Project (Start Window)</span>
                   </button>
                 </div>
               </div>

@@ -23,12 +23,16 @@ import { CodexView } from './components/codex/CodexView';
 import { CommandPalette } from './components/palette/CommandPalette';
 import { ProjectHubModal } from './components/project/ProjectHubModal';
 import { NewProjectModal } from './components/project/NewProjectModal';
+import { ProjectStartWindow } from './components/project/ProjectStartWindow';
 import './styles/theme.css';
 
 export const App: React.FC = () => {
   // Multi-project collection
   const [projects, setProjects] = useState<ProjectData[]>(() => ProjectStorage.loadAllProjects());
   const [activeProjectId, setActiveProjectId] = useState<string>(() => ProjectStorage.loadActiveProjectId());
+
+  // Project session state: only starts when user explicitly starts or opens a project
+  const [isProjectOpen, setIsProjectOpen] = useState<boolean>(false);
 
   const [theme, setTheme] = useState<ThemeMode>('paper');
   const [currentView, setCurrentView] = useState<MainView>('write');
@@ -92,8 +96,8 @@ export const App: React.FC = () => {
     });
   };
 
-  // Switch to another project
-  const handleSelectProject = (projectId: string) => {
+  // Launch project from Start Window or Project Hub
+  const handleOpenProject = (projectId: string) => {
     setActiveProjectId(projectId);
     const targetProj = projects.find((p) => p.settings.id === projectId);
     if (targetProj) {
@@ -104,9 +108,10 @@ export const App: React.FC = () => {
       }
     }
     setIsSplitView(false);
+    setIsProjectOpen(true);
   };
 
-  // Create new project
+  // Create new project and start it
   const handleCreateProject = (params: {
     title: string;
     targetWords: number;
@@ -122,6 +127,7 @@ export const App: React.FC = () => {
       setActiveSceneId(firstScene.id);
     }
     setCurrentView('write');
+    setIsProjectOpen(true);
   };
 
   // Delete project
@@ -139,6 +145,11 @@ export const App: React.FC = () => {
     if (activeProjectId === projectId) {
       setActiveProjectId(remaining[0].settings.id);
     }
+  };
+
+  // Close project and return to start window
+  const handleCloseProject = () => {
+    setIsProjectOpen(false);
   };
 
   // Delete scene
@@ -164,7 +175,6 @@ export const App: React.FC = () => {
         children: filterChildren(f.children),
       }));
 
-      // Pick next scene if current was deleted
       const remainingScenes = ProjectStorage.getAllScenes(updatedManuscript);
       if (activeSceneId === sceneId && remainingScenes.length > 0) {
         setActiveSceneId(remainingScenes[0].id);
@@ -558,6 +568,21 @@ export const App: React.FC = () => {
     }));
   };
 
+  // If no project has been started by the user yet, display the Project Start Window!
+  if (!isProjectOpen) {
+    return (
+      <ProjectStartWindow
+        projects={projects}
+        onOpenProject={handleOpenProject}
+        onCreateProject={handleCreateProject}
+        onDeleteProject={handleDeleteProject}
+        theme={theme}
+        onSelectTheme={setTheme}
+      />
+    );
+  }
+
+  // Active Project Workspace
   return (
     <div style={{
       display: 'flex',
@@ -578,10 +603,11 @@ export const App: React.FC = () => {
         onEnterFocusMode={() => setIsFocusMode(true)}
         projects={projects}
         activeProjectId={activeProjectId}
-        onSelectProject={handleSelectProject}
+        onSelectProject={handleOpenProject}
         onOpenProjectHub={() => setIsProjectHubOpen(true)}
         onOpenNewProject={() => setIsNewProjectOpen(true)}
         onDeleteProject={handleDeleteProject}
+        onCloseProject={handleCloseProject}
       />
 
       {/* Main Workspace Body */}
@@ -735,7 +761,7 @@ export const App: React.FC = () => {
         onClose={() => setIsProjectHubOpen(false)}
         projects={projects}
         activeProjectId={activeProjectId}
-        onSelectProject={handleSelectProject}
+        onSelectProject={handleOpenProject}
         onOpenNewProject={() => {
           setIsProjectHubOpen(false);
           setIsNewProjectOpen(true);
