@@ -193,6 +193,17 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     };
   }, [scene.id, theme]); // re-init when switching scene or theme
 
+  // Synchronize document if scene.content changes externally (e.g. restoring a snapshot)
+  useEffect(() => {
+    if (!editorViewRef.current) return;
+    const currentDoc = editorViewRef.current.state.doc.toString();
+    if (scene.content !== currentDoc) {
+      editorViewRef.current.dispatch({
+        changes: { from: 0, to: currentDoc.length, insert: scene.content },
+      });
+    }
+  }, [scene.content]);
+
   // Handle lore tag selection from popup
   const handleSelectLore = (entry: LoreEntry) => {
     if (!editorViewRef.current) return;

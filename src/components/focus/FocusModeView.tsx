@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { SceneItem } from '../../types/project';
 import { Minimize2 } from 'lucide-react';
 
@@ -17,12 +17,7 @@ export const FocusModeView: React.FC<FocusModeViewProps> = ({
   onExit,
   onChangeContent,
 }) => {
-  const [activeParagraphIndex, setActiveParagraphIndex] = useState(2); // default paragraph
-  const [focusUnit, setFocusUnit] = useState<'paragraph' | 'sentence'>('paragraph');
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Split scene into paragraphs
-  const paragraphs = scene.content.split('\n\n');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -34,11 +29,14 @@ export const FocusModeView: React.FC<FocusModeViewProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onExit]);
 
-  const handleParagraphChange = (index: number, newText: string) => {
-    const updated = [...paragraphs];
-    updated[index] = newText;
-    onChangeContent(updated.join('\n\n'));
-  };
+  useEffect(() => {
+    // Focus textarea on mount
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, []);
+
+  const sceneWords = scene.content.trim() ? scene.content.trim().split(/\s+/).length : 0;
 
   return (
     <div
@@ -52,7 +50,7 @@ export const FocusModeView: React.FC<FocusModeViewProps> = ({
         flexDirection: 'column',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '60px 24px 32px 24px',
+        padding: '48px 24px 24px 24px',
         overflow: 'hidden',
         userSelect: 'text',
       }}
@@ -68,104 +66,90 @@ export const FocusModeView: React.FC<FocusModeViewProps> = ({
           padding: '8px',
           borderRadius: '6px',
           color: 'var(--text-muted)',
+          backgroundColor: 'transparent',
+          border: 'none',
           cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontSize: '12px',
         }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
       >
-        <Minimize2 size={18} />
+        <span>Exit Focus</span>
+        <Minimize2 size={16} />
       </button>
 
       {/* Centered Prose Column */}
       <div
-        ref={containerRef}
         style={{
           width: '100%',
-          maxWidth: 'var(--editor-max-width, 720px)',
+          maxWidth: 'var(--editor-max-width, 760px)',
           flex: 1,
-          overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
-          gap: '24px',
-          padding: '40px 0',
+          overflow: 'hidden',
         }}
       >
-        {paragraphs.map((para, idx) => {
-          const isActive = idx === activeParagraphIndex;
+        <div style={{ marginBottom: '16px', opacity: 0.6, fontSize: '14px', fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>
+          {scene.title}
+        </div>
 
-          return (
-            <div
-              key={idx}
-              onClick={() => setActiveParagraphIndex(idx)}
-              style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: '20px',
-                lineHeight: '1.9',
-                opacity: 1, // Keep text opacity normal (100% visible)
-                borderLeft: isActive ? '3px solid var(--accent-primary)' : '3px solid transparent',
-                paddingLeft: '16px',
-                transition: 'border-color 0.2s ease, background-color 0.2s ease',
-                cursor: 'text',
-                position: 'relative',
-              }}
-            >
-              <textarea
-                value={para}
-                onFocus={() => setActiveParagraphIndex(idx)}
-                onChange={(e) => handleParagraphChange(idx, e.target.value)}
-                rows={Math.max(2, Math.ceil(para.length / 60))}
-                style={{
-                  width: '100%',
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  resize: 'none',
-                  fontFamily: 'inherit',
-                  fontSize: 'inherit',
-                  lineHeight: 'inherit',
-                  color: 'var(--text-primary)',
-                  opacity: 1,
-                  padding: 0,
-                  margin: 0,
-                }}
-              />
-            </div>
-          );
-        })}
+        <textarea
+          ref={textareaRef}
+          value={scene.content}
+          onChange={(e) => onChangeContent(e.target.value)}
+          placeholder="Begin drafting without distraction..."
+          style={{
+            width: '100%',
+            flex: 1,
+            backgroundColor: 'transparent',
+            border: 'none',
+            outline: 'none',
+            resize: 'none',
+            fontFamily: 'var(--font-serif)',
+            fontSize: '19px',
+            lineHeight: '1.9',
+            color: 'var(--text-primary)',
+            padding: 0,
+            overflowY: 'auto',
+          }}
+        />
       </div>
 
       {/* Floating HUD Indicator */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '20px',
-        backgroundColor: 'rgba(56, 44, 30, 0.08)',
-        backdropFilter: 'blur(8px)',
+        gap: '16px',
+        backgroundColor: 'var(--bg-card-subtle, rgba(0, 0, 0, 0.05))',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid var(--border-subtle)',
         padding: '8px 20px',
         borderRadius: '24px',
         fontSize: '12px',
         color: 'var(--text-secondary)',
         userSelect: 'none',
+        marginTop: '16px',
       }}>
         <span>
-          <strong style={{ color: 'var(--text-primary)' }}>{todayWords.toLocaleString()}</strong> of {dailyGoal.toLocaleString()} words today
+          <strong style={{ color: 'var(--text-primary)' }}>{sceneWords.toLocaleString()}</strong> words in scene
         </span>
         <span style={{ color: 'var(--text-muted)' }}>•</span>
-        <span
-          onClick={() => setFocusUnit(focusUnit === 'paragraph' ? 'sentence' : 'paragraph')}
-          style={{ cursor: 'pointer', textDecoration: 'underline' }}
-          title="Click to toggle sentence / paragraph focus"
-        >
-          Focus on current {focusUnit}
+        <span>
+          <strong style={{ color: 'var(--accent-primary)' }}>{todayWords.toLocaleString()}</strong> of {dailyGoal.toLocaleString()} goal today
         </span>
         <span style={{ color: 'var(--text-muted)' }}>•</span>
         <kbd style={{
-          backgroundColor: 'rgba(56, 44, 30, 0.1)',
+          backgroundColor: 'var(--bg-active)',
           padding: '2px 6px',
           borderRadius: '4px',
           fontFamily: 'var(--font-mono)',
           fontSize: '11px',
+          color: 'var(--text-primary)',
         }}>
-          Esc to leave
+          Esc to exit
         </kbd>
       </div>
     </div>

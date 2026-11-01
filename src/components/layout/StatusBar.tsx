@@ -17,7 +17,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   isSaving = false,
 }) => {
   // 25-minute Pomodoro timer
-  const [secondsLeft, setSecondsLeft] = useState(25 * 60 - 378); // ~18:42 default
+  const [secondsLeft, setSecondsLeft] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
 
   useEffect(() => {
@@ -93,6 +93,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               color: 'var(--text-primary)',
               display: 'flex',
               alignItems: 'center',
+              border: 'none',
+              cursor: 'pointer',
             }}
           >
             {isRunning ? <Pause size={10} /> : <Play size={10} />}
@@ -110,6 +112,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({
               color: 'var(--text-secondary)',
               display: 'flex',
               alignItems: 'center',
+              border: 'none',
+              cursor: 'pointer',
             }}
           >
             <RotateCcw size={10} />

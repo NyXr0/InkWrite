@@ -13,7 +13,8 @@ import {
   User,
   Search,
   Palette,
-  BookOpen
+  BookOpen,
+  Download
 } from 'lucide-react';
 
 interface CommandPaletteProps {
@@ -29,6 +30,7 @@ interface CommandPaletteProps {
   onOpenReadingMode?: () => void;
   onSelectTheme: (theme: ThemeMode) => void;
   onOpenAppearance: () => void;
+  onOpenCompile?: () => void;
   onOpenNewProject: () => void;
   onOpenProjectHub: () => void;
 }
@@ -46,6 +48,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onOpenReadingMode,
   onSelectTheme,
   onOpenAppearance,
+  onOpenCompile,
   onOpenNewProject,
   onOpenProjectHub,
 }) => {
@@ -125,6 +128,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       icon: <BookOpen size={14} />,
       action: () => { if (onOpenReadingMode) onOpenReadingMode(); onClose(); },
     },
+    ...(onOpenCompile ? [{
+      id: 'cmd-compile',
+      title: 'Compile & Export Manuscript (.md, .txt, .html, .json)...',
+      shortcut: 'Ctrl Shift E',
+      icon: <Download size={14} />,
+      action: () => { onClose(); onOpenCompile(); },
+    }] : []),
     {
       id: 'cmd-appearance',
       title: 'Customize appearance (Background wallpaper, fonts, themes)...',

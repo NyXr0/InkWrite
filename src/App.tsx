@@ -7,7 +7,8 @@ import {
   FolderItem, 
   LoreEntry, 
   SceneStatus,
-  LoreCategory 
+  LoreCategory,
+  TimelineEvent 
 } from './types/project';
 import { ProjectStorage } from './core/storage';
 import { TopNavBar } from './components/layout/TopNavBar';
@@ -30,6 +31,7 @@ import { AppearanceStorage } from './core/appearanceStorage';
 import { CustomFontStorage } from './core/customFontStorage';
 import { AppearanceSettings } from './types/appearance';
 import { AppearanceModal } from './components/settings/AppearanceModal';
+import { CompileModal } from './components/export/CompileModal';
 import { CustomBackdrop } from './components/layout/CustomBackdrop';
 import './styles/theme.css';
 
@@ -58,6 +60,8 @@ export const App: React.FC = () => {
   const [isSplitView, setIsSplitView] = useState<boolean>(false);
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState<boolean>(false);
+  const [isCompileOpen, setIsCompileOpen] = useState<boolean>(false);
+  const [selectedCorkboardFolderId, setSelectedCorkboardFolderId] = useState<string | null>(null);
   const [isProjectHubOpen, setIsProjectHubOpen] = useState<boolean>(false);
   const [isNewProjectOpen, setIsNewProjectOpen] = useState<boolean>(false);
   const [selectedCodexId, setSelectedCodexId] = useState<string | undefined>(undefined);
@@ -288,6 +292,10 @@ export const App: React.FC = () => {
 
   // Active folder for corkboard
   const activeFolder = useMemo(() => {
+    if (selectedCorkboardFolderId) {
+      const found = ProjectStorage.findFolder(activeProject.manuscript, selectedCorkboardFolderId);
+      if (found) return found;
+    }
     for (const folder of activeProject.manuscript) {
       for (const item of folder.children) {
         if (item.type === 'folder') {
@@ -302,7 +310,7 @@ export const App: React.FC = () => {
       return p1.children[0] as FolderItem;
     }
     return activeProject.manuscript[0];
-  }, [activeProject.manuscript, activeSceneId]);
+  }, [activeProject.manuscript, activeSceneId, selectedCorkboardFolderId]);
 
   // Update scene text content
   const handleUpdateSceneContent = (newContent: string) => {
@@ -586,6 +594,195 @@ export const App: React.FC = () => {
     return newId;
   };
 
+  // Rename scene
+  const handleRenameScene = (sceneId: string, newTitle: string) => {
+    updateActiveProject((prev) => {
+      const updateChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
+        return items.map((it) => {
+          if (it.type === 'scene' && it.id === sceneId) {
+            return { ...it, title: newTitle };
+          } else if (it.type === 'folder') {
+            return { ...it, children: updateChildren(it.children) };
+          }
+          return it;
+        });
+      };
+      return {
+        ...prev,
+        manuscript: prev.manuscript.map((f) => ({
+          ...f,
+          children: updateChildren(f.children),
+        })),
+      };
+    });
+  };
+
+  // Rename folder
+  const handleRenameFolder = (folderId: string, newTitle: string) => {
+    updateActiveProject((prev) => {
+      const updateChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
+        return items.map((it) => {
+          if (it.type === 'folder') {
+            if (it.id === folderId) {
+              return { ...it, title: newTitle, children: updateChildren(it.children) };
+            }
+            return { ...it, children: updateChildren(it.children) };
+          }
+          return it;
+        });
+      };
+      return {
+        ...prev,
+        manuscript: prev.manuscript.map((f) => {
+          if (f.id === folderId) {
+            return { ...f, title: newTitle, children: updateChildren(f.children) };
+          }
+          return { ...f, children: updateChildren(f.children) };
+        }),
+      };
+    });
+  };
+
+  // Add folder / chapter
+  const handleAddFolder = (parentFolderId?: string, title?: string) => {
+    const newFolderId = `folder-${Date.now()}`;
+    const newFolder: FolderItem = {
+      id: newFolderId,
+      title: title || 'New Chapter',
+      type: 'folder',
+      children: [],
+      order: [],
+    };
+
+    updateActiveProject((prev) => {
+      if (!parentFolderId) {
+        return {
+          ...prev,
+          manuscript: [...prev.manuscript, newFolder],
+        };
+      }
+
+      const updateChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
+        return items.map((it) => {
+          if (it.type === 'folder') {
+            if (it.id === parentFolderId) {
+              return {
+                ...it,
+                order: [...it.order, newFolderId],
+                children: [...it.children, newFolder],
+              };
+            }
+            return { ...it, children: updateChildren(it.children) };
+          }
+          return it;
+        });
+      };
+
+      return {
+        ...prev,
+        manuscript: prev.manuscript.map((f) => {
+          if (f.id === parentFolderId) {
+            return {
+              ...f,
+              order: [...f.order, newFolderId],
+              children: [...f.children, newFolder],
+            };
+          }
+          return { ...f, children: updateChildren(f.children) };
+        }),
+      };
+    });
+  };
+
+  // Restore snapshot
+  const handleRestoreSnapshot = (sceneId: string, snapshotId: string) => {
+    updateActiveProject((prev) => {
+      const updateChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
+        return items.map((it) => {
+          if (it.type === 'scene' && it.id === sceneId) {
+            const snap = it.snapshots.find((s) => s.id === snapshotId);
+            if (!snap) return it;
+            return {
+              ...it,
+              content: snap.content,
+              wordCount: snap.wordCount,
+            };
+          } else if (it.type === 'folder') {
+            return { ...it, children: updateChildren(it.children) };
+          }
+          return it;
+        });
+      };
+      return {
+        ...prev,
+        manuscript: prev.manuscript.map((f) => ({
+          ...f,
+          children: updateChildren(f.children),
+        })),
+      };
+    });
+  };
+
+  // Delete snapshot
+  const handleDeleteSnapshot = (sceneId: string, snapshotId: string) => {
+    updateActiveProject((prev) => {
+      const updateChildren = (items: (FolderItem | SceneItem)[]): (FolderItem | SceneItem)[] => {
+        return items.map((it) => {
+          if (it.type === 'scene' && it.id === sceneId) {
+            return {
+              ...it,
+              snapshots: it.snapshots.filter((s) => s.id !== snapshotId),
+            };
+          } else if (it.type === 'folder') {
+            return { ...it, children: updateChildren(it.children) };
+          }
+          return it;
+        });
+      };
+      return {
+        ...prev,
+        manuscript: prev.manuscript.map((f) => ({
+          ...f,
+          children: updateChildren(f.children),
+        })),
+      };
+    });
+  };
+
+  // Add timeline event
+  const handleAddTimelineEvent = (event: TimelineEvent) => {
+    updateActiveProject((prev) => ({
+      ...prev,
+      timeline: [...prev.timeline, event],
+    }));
+  };
+
+  // Update timeline event
+  const handleUpdateTimelineEvent = (event: TimelineEvent) => {
+    updateActiveProject((prev) => ({
+      ...prev,
+      timeline: prev.timeline.map((e) => (e.id === event.id ? event : e)),
+    }));
+  };
+
+  // Import / restore project from backup
+  const handleImportProject = (imported: ProjectData) => {
+    setProjects((prev) => {
+      const existingIndex = prev.findIndex((p) => p.settings.id === imported.settings.id);
+      if (existingIndex !== -1) {
+        const updated = [...prev];
+        updated[existingIndex] = imported;
+        return updated;
+      }
+      return [imported, ...prev];
+    });
+    setActiveProjectId(imported.settings.id);
+    const scenes = ProjectStorage.getAllScenes(imported.manuscript);
+    if (scenes.length > 0) {
+      setActiveSceneId(scenes[0].id);
+    }
+  };
+
   // Update lore
   const handleUpdateLore = (updated: LoreEntry) => {
     updateActiveProject((prev) => ({
@@ -603,6 +800,7 @@ export const App: React.FC = () => {
           projects={projects}
           onOpenProject={handleOpenProject}
           onCreateProject={handleCreateProject}
+          onImportProject={handleImportProject}
           onDeleteProject={handleDeleteProject}
           theme={theme}
           onSelectTheme={handleSelectTheme}
@@ -644,6 +842,7 @@ export const App: React.FC = () => {
         onSelectTheme={handleSelectTheme}
         onOpenPalette={() => setIsPaletteOpen(true)}
         onOpenAppearance={() => setIsAppearanceOpen(true)}
+        onOpenCompile={() => setIsCompileOpen(true)}
         onEnterFocusMode={() => setIsFocusMode(true)}
         projects={projects}
         activeProjectId={activeProjectId}
@@ -663,6 +862,9 @@ export const App: React.FC = () => {
             activeSceneId={activeSceneId}
             onSelectScene={setActiveSceneId}
             onAddScene={handleAddScene}
+            onAddFolder={handleAddFolder}
+            onRenameScene={handleRenameScene}
+            onRenameFolder={handleRenameFolder}
             onDeleteScene={handleDeleteScene}
             onDeleteFolder={handleDeleteFolder}
             onOpenCodex={() => setCurrentView('codex')}
@@ -700,10 +902,13 @@ export const App: React.FC = () => {
               <InspectorPanel
                 scene={activeScene}
                 loreList={activeProject.lore}
+                onUpdateTitle={(title) => handleRenameScene(activeScene.id, title)}
                 onUpdateStatus={handleUpdateSceneStatus}
                 onUpdateSummary={(sum) => handleUpdateSceneSummary(activeScene.id, sum)}
                 onAddComment={handleAddComment}
                 onResolveComment={handleResolveComment}
+                onRestoreSnapshot={(snapId) => handleRestoreSnapshot(activeScene.id, snapId)}
+                onDeleteSnapshot={(snapId) => handleDeleteSnapshot(activeScene.id, snapId)}
                 onOpenCodexEntry={(entry) => {
                   setSelectedCodexId(entry.id);
                   setCurrentView('codex');
@@ -717,10 +922,13 @@ export const App: React.FC = () => {
         {currentView === 'corkboard' && activeFolder && (
           <CorkboardView
             currentFolder={activeFolder}
+            allFolders={ProjectStorage.getAllFolders(activeProject.manuscript)}
+            onSelectFolder={setSelectedCorkboardFolderId}
             onSelectScene={(id) => {
               setActiveSceneId(id);
               setCurrentView('write');
             }}
+            onUpdateSceneTitle={handleRenameScene}
             onUpdateSceneSummary={handleUpdateSceneSummary}
             onAddScene={handleAddScene}
             onDeleteScene={handleDeleteScene}
@@ -731,11 +939,13 @@ export const App: React.FC = () => {
         {currentView === 'timeline' && (
           <TimelineView
             events={activeProject.timeline}
+            scenes={allScenes}
             onSelectScene={(id) => {
               setActiveSceneId(id);
               setCurrentView('write');
             }}
-            onAddEvent={() => {}}
+            onAddEvent={handleAddTimelineEvent}
+            onUpdateEvent={handleUpdateTimelineEvent}
             onDeleteEvent={handleDeleteEvent}
           />
         )}
@@ -788,7 +998,7 @@ export const App: React.FC = () => {
         sceneWordCount={activeScene ? activeScene.wordCount : 0}
         sessionWordDelta={activeProject.settings.todayWords}
         streakDays={activeProject.settings.currentStreakDays}
-        lastSnapshotText="last snapshot 14 min ago"
+        lastSnapshotText={activeScene && activeScene.snapshots.length > 0 ? `last snapshot: ${activeScene.snapshots[0].timestamp}` : 'no snapshots yet'}
       />
 
       {/* Distraction-Free Focus Mode Modal */}
@@ -822,6 +1032,7 @@ export const App: React.FC = () => {
         onOpenReadingMode={() => setCurrentView('read')}
         onSelectTheme={handleSelectTheme}
         onOpenAppearance={() => setIsAppearanceOpen(true)}
+        onOpenCompile={() => setIsCompileOpen(true)}
         onOpenNewProject={() => setIsNewProjectOpen(true)}
         onOpenProjectHub={() => setIsProjectHubOpen(true)}
       />
@@ -845,6 +1056,14 @@ export const App: React.FC = () => {
         isOpen={isNewProjectOpen}
         onClose={() => setIsNewProjectOpen(false)}
         onCreate={handleCreateProject}
+      />
+
+      {/* Compile & Export Manuscript Modal */}
+      <CompileModal
+        isOpen={isCompileOpen}
+        onClose={() => setIsCompileOpen(false)}
+        project={activeProject}
+        onImportProject={handleImportProject}
       />
 
       {/* Appearance & Wallpaper Customization Modal */}

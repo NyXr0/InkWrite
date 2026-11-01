@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { SceneItem, FolderItem, SceneStatus } from '../../types/project';
-import { Filter, Plus, GripVertical, CheckCircle2, Trash2 } from 'lucide-react';
+import { Filter, Plus, GripVertical, CheckCircle2, Trash2, Folder } from 'lucide-react';
 
 interface CorkboardViewProps {
   currentFolder: FolderItem;
+  allFolders?: FolderItem[];
+  onSelectFolder?: (folderId: string) => void;
   onSelectScene: (sceneId: string) => void;
+  onUpdateSceneTitle?: (sceneId: string, newTitle: string) => void;
   onUpdateSceneSummary: (sceneId: string, summary: string) => void;
   onAddScene: (folderId: string) => void;
   onDeleteScene: (sceneId: string) => void;
@@ -13,7 +16,10 @@ interface CorkboardViewProps {
 
 export const CorkboardView: React.FC<CorkboardViewProps> = ({
   currentFolder,
+  allFolders = [],
+  onSelectFolder,
   onSelectScene,
+  onUpdateSceneTitle,
   onUpdateSceneSummary,
   onAddScene,
   onDeleteScene,
@@ -108,15 +114,45 @@ export const CorkboardView: React.FC<CorkboardViewProps> = ({
         flexShrink: 0,
       }}>
         <div>
-          <h2 style={{
-            fontSize: '18px',
-            fontFamily: 'var(--font-serif)',
-            fontWeight: 600,
-            color: 'var(--text-primary)',
-            marginBottom: '4px',
-          }}>
-            {currentFolder.title}
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+            <h2 style={{
+              fontSize: '18px',
+              fontFamily: 'var(--font-serif)',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              margin: 0,
+            }}>
+              {currentFolder.title}
+            </h2>
+
+            {/* Folder / Chapter Switcher */}
+            {allFolders.length > 1 && onSelectFolder && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Folder size={14} color="var(--text-muted)" />
+                <select
+                  value={currentFolder.id}
+                  onChange={(e) => onSelectFolder(e.target.value)}
+                  style={{
+                    fontSize: '12px',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    backgroundColor: 'var(--bg-app)',
+                    border: '1px solid var(--border-subtle)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                >
+                  {allFolders.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
           <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
             {scenes.length} scenes • {totalWords.toLocaleString()} words
           </div>
@@ -224,18 +260,35 @@ export const CorkboardView: React.FC<CorkboardViewProps> = ({
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <h3 style={{
-                      fontSize: '15px',
-                      fontFamily: 'var(--font-serif)',
-                      fontWeight: 600,
-                      color: 'var(--text-primary)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      paddingRight: '8px',
-                    }}>
-                      {scene.title}
-                    </h3>
+                    <input
+                      value={scene.title}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        if (onUpdateSceneTitle) {
+                          onUpdateSceneTitle(scene.id, e.target.value);
+                        }
+                      }}
+                      style={{
+                        fontSize: '15px',
+                        fontFamily: 'var(--font-serif)',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        border: '1px solid transparent',
+                        backgroundColor: 'transparent',
+                        borderRadius: '4px',
+                        padding: '2px 4px',
+                        width: 'calc(100% - 40px)',
+                        outline: 'none',
+                      }}
+                      onFocus={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                        e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
+                      }}
+                      onBlur={(e) => {
+                        e.currentTarget.style.borderColor = 'transparent';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    />
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <button
@@ -250,6 +303,9 @@ export const CorkboardView: React.FC<CorkboardViewProps> = ({
                           transition: 'opacity 0.15s ease',
                           display: 'flex',
                           alignItems: 'center',
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
                         }}
                         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
@@ -261,7 +317,7 @@ export const CorkboardView: React.FC<CorkboardViewProps> = ({
                     </div>
                   </div>
 
-                  <p
+                  <div
                     onClick={(e) => e.stopPropagation()}
                     style={{
                       fontSize: '13px',
@@ -286,7 +342,7 @@ export const CorkboardView: React.FC<CorkboardViewProps> = ({
                         lineHeight: 'inherit',
                       }}
                     />
-                  </p>
+                  </div>
                 </div>
 
                 <div style={{
@@ -321,7 +377,7 @@ export const CorkboardView: React.FC<CorkboardViewProps> = ({
                   </div>
 
                   <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                    {scene.wordCount.toLocaleString()}
+                    {scene.wordCount.toLocaleString()} words
                   </span>
                 </div>
               </div>

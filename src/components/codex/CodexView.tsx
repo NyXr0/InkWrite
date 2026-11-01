@@ -8,7 +8,11 @@ import {
   Sparkles, 
   Plus, 
   Search, 
-  Trash2 
+  Trash2,
+  Tag,
+  Link2,
+  ExternalLink,
+  Edit2
 } from 'lucide-react';
 
 interface CodexViewProps {
@@ -32,6 +36,11 @@ export const CodexView: React.FC<CodexViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+
+  // New relationship form state
+  const [newRelTo, setNewRelTo] = useState('');
+  const [newRelType, setNewRelType] = useState('');
+  const [newAlias, setNewAlias] = useState('');
 
   const activeEntry = loreList.find((item) => item.id === selectedId) || loreList[0];
 
@@ -78,6 +87,51 @@ export const CodexView: React.FC<CodexViewProps> = ({
         }
       }
     }
+  };
+
+  const handleAddRelationship = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeEntry || !newRelTo.trim() || !newRelType.trim()) return;
+
+    const existingRels = activeEntry.relationships || [];
+    const updated = {
+      ...activeEntry,
+      relationships: [...existingRels, { to: newRelTo.trim(), type: newRelType.trim() }],
+    };
+    onUpdateLore(updated);
+    setNewRelTo('');
+    setNewRelType('');
+  };
+
+  const handleRemoveRelationship = (index: number) => {
+    if (!activeEntry || !activeEntry.relationships) return;
+    const updatedRels = activeEntry.relationships.filter((_, idx) => idx !== index);
+    onUpdateLore({
+      ...activeEntry,
+      relationships: updatedRels,
+    });
+  };
+
+  const handleAddAlias = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && newAlias.trim() && activeEntry) {
+      e.preventDefault();
+      const existing = activeEntry.aliases || [];
+      if (!existing.includes(newAlias.trim())) {
+        onUpdateLore({
+          ...activeEntry,
+          aliases: [...existing, newAlias.trim()],
+        });
+      }
+      setNewAlias('');
+    }
+  };
+
+  const handleRemoveAlias = (aliasToRemove: string) => {
+    if (!activeEntry || !activeEntry.aliases) return;
+    onUpdateLore({
+      ...activeEntry,
+      aliases: activeEntry.aliases.filter((a) => a !== aliasToRemove),
+    });
   };
 
   return (
@@ -278,7 +332,7 @@ export const CodexView: React.FC<CodexViewProps> = ({
         backgroundColor: 'var(--bg-app)',
       }}>
         {activeEntry ? (
-          <div style={{ maxWidth: '720px', margin: '0 auto' }}>
+          <div style={{ maxWidth: '760px', margin: '0 auto' }}>
             {/* Header / Profile card */}
             <div style={{
               display: 'flex',
@@ -288,33 +342,86 @@ export const CodexView: React.FC<CodexViewProps> = ({
               paddingBottom: '20px',
               borderBottom: '1px solid var(--border-subtle)',
             }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <h1 style={{
-                    fontFamily: 'var(--font-serif)',
-                    fontSize: '28px',
-                    fontWeight: 600,
-                    color: 'var(--text-primary)',
-                  }}>
-                    {activeEntry.name}
-                  </h1>
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    padding: '2px 8px',
-                    borderRadius: '12px',
-                    backgroundColor: 'var(--accent-pill)',
-                    color: 'var(--accent-pill-text)',
-                  }}>
-                    {activeEntry.category}
-                  </span>
+              <div style={{ flex: 1, marginRight: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                  <input
+                    value={activeEntry.name}
+                    onChange={(e) => {
+                      const newName = e.target.value;
+                      const newSlug = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                      onUpdateLore({
+                        ...activeEntry,
+                        name: newName,
+                        slug: newSlug || activeEntry.slug,
+                      });
+                    }}
+                    placeholder="Entry Name..."
+                    style={{
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: '24px',
+                      fontWeight: 700,
+                      color: 'var(--text-primary)',
+                      border: '1px solid transparent',
+                      borderRadius: '6px',
+                      padding: '4px 8px',
+                      backgroundColor: 'transparent',
+                      width: '100%',
+                      outline: 'none',
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                      e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = 'transparent';
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  />
+
+                  {/* Category Selector */}
+                  <select
+                    value={activeEntry.category}
+                    onChange={(e) => onUpdateLore({ ...activeEntry, category: e.target.value as LoreCategory })}
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      padding: '4px 8px',
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--accent-pill)',
+                      color: 'var(--accent-pill-text)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="character">Character</option>
+                    <option value="location">Location</option>
+                    <option value="faction">Faction</option>
+                    <option value="lore">Lore</option>
+                    <option value="item">Item</option>
+                  </select>
                 </div>
 
-                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  {activeEntry.role && <strong style={{ color: 'var(--text-primary)' }}>{activeEntry.role} • </strong>}
-                  <span>Wiki link: </span>
-                  <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-primary)' }}>
+                {/* Role / Tagline input */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  <input
+                    value={activeEntry.role || ''}
+                    onChange={(e) => onUpdateLore({ ...activeEntry, role: e.target.value })}
+                    placeholder="Role (e.g. Protagonist, Kingdom, Artifact)..."
+                    style={{
+                      fontSize: '13px',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      border: '1px solid var(--border-subtle)',
+                      backgroundColor: 'var(--bg-surface)',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                      width: '240px',
+                    }}
+                  />
+                  <span>Wiki tag: </span>
+                  <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-primary)', fontSize: '12px' }}>
                     [[{activeEntry.slug}|{activeEntry.name}]]
                   </code>
                 </div>
@@ -332,6 +439,7 @@ export const CodexView: React.FC<CodexViewProps> = ({
                   border: '1px solid #fecaca',
                   fontSize: '12px',
                   cursor: 'pointer',
+                  backgroundColor: 'transparent',
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
@@ -339,6 +447,69 @@ export const CodexView: React.FC<CodexViewProps> = ({
                 <Trash2 size={13} />
                 <span>Delete Entry</span>
               </button>
+            </div>
+
+            {/* Aliases Section */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '11px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+                marginBottom: '6px',
+              }}>
+                Aliases & Alternate Names
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                {(activeEntry.aliases || []).map((alias) => (
+                  <span
+                    key={alias}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 8px',
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--bg-active)',
+                      color: 'var(--text-secondary)',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <span>{alias}</span>
+                    <button
+                      onClick={() => handleRemoveAlias(alias)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+                <input
+                  value={newAlias}
+                  onChange={(e) => setNewAlias(e.target.value)}
+                  onKeyDown={handleAddAlias}
+                  placeholder="+ Add alias (press Enter)..."
+                  style={{
+                    fontSize: '12px',
+                    padding: '3px 8px',
+                    borderRadius: '12px',
+                    border: '1px dashed var(--border-subtle)',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    width: '160px',
+                  }}
+                />
+              </div>
             </div>
 
             {/* Summary field */}
@@ -357,6 +528,7 @@ export const CodexView: React.FC<CodexViewProps> = ({
                 value={activeEntry.summary}
                 onChange={(e) => onUpdateLore({ ...activeEntry, summary: e.target.value })}
                 rows={2}
+                placeholder="Brief summary or logline for this character or subject..."
                 style={{
                   width: '100%',
                   fontSize: '14px',
@@ -366,12 +538,13 @@ export const CodexView: React.FC<CodexViewProps> = ({
                   border: '1px solid var(--border-subtle)',
                   borderRadius: '6px',
                   outline: 'none',
+                  color: 'var(--text-primary)',
                 }}
               />
             </div>
 
             {/* Profile Content / Backstory */}
-            <div style={{ marginBottom: '24px' }}>
+            <div style={{ marginBottom: '28px' }}>
               <label style={{
                 display: 'block',
                 fontSize: '11px',
@@ -386,6 +559,7 @@ export const CodexView: React.FC<CodexViewProps> = ({
                 value={activeEntry.content}
                 onChange={(e) => onUpdateLore({ ...activeEntry, content: e.target.value })}
                 rows={12}
+                placeholder="Full background, personality traits, secrets, historical significance..."
                 style={{
                   width: '100%',
                   fontFamily: 'var(--font-serif)',
@@ -396,53 +570,194 @@ export const CodexView: React.FC<CodexViewProps> = ({
                   border: '1px solid var(--border-subtle)',
                   borderRadius: '6px',
                   outline: 'none',
+                  color: 'var(--text-primary)',
                 }}
               />
             </div>
 
-            {/* Relationships */}
-            {activeEntry.relationships && activeEntry.relationships.length > 0 && (
-              <div>
+            {/* Interactive Key Relationships Section */}
+            <div style={{
+              backgroundColor: 'var(--bg-card)',
+              padding: '20px',
+              borderRadius: '8px',
+              border: '1px solid var(--border-subtle)',
+              marginBottom: '32px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
                 <label style={{
-                  display: 'block',
-                  fontSize: '11px',
+                  fontSize: '12px',
                   fontWeight: 700,
                   textTransform: 'uppercase',
-                  color: 'var(--text-muted)',
-                  marginBottom: '8px',
+                  color: 'var(--text-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  margin: 0,
                 }}>
+                  <Link2 size={14} color="var(--accent-primary)" />
                   Key Relationships
                 </label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {activeEntry.relationships.map((rel, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '10px 14px',
-                        backgroundColor: 'var(--bg-surface)',
-                        borderRadius: '6px',
-                        border: '1px solid var(--border-subtle)',
-                        fontSize: '13px',
-                      }}
-                    >
-                      <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{rel.to}</span>
-                      <span style={{
-                        fontSize: '11px',
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        backgroundColor: 'var(--bg-active)',
-                        color: 'var(--text-secondary)',
-                      }}>
-                        {rel.type}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Connections to characters, factions & places
+                </span>
               </div>
-            )}
+
+              {/* List of existing relationships */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+                {(!activeEntry.relationships || activeEntry.relationships.length === 0) ? (
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '8px 0' }}>
+                    No relationships linked yet. Connect this entry to other characters or places below.
+                  </div>
+                ) : (
+                  activeEntry.relationships.map((rel, idx) => {
+                    // Check if target entity exists in loreList to allow jump
+                    const targetEntity = loreList.find((l) => l.name.toLowerCase() === rel.to.toLowerCase());
+
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 12px',
+                          backgroundColor: 'var(--bg-surface)',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border-subtle)',
+                          fontSize: '13px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{rel.to}</span>
+                          {targetEntity && (
+                            <button
+                              onClick={() => setSelectedId(targetEntity.id)}
+                              title={`Jump to ${targetEntity.name} in Codex`}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--accent-primary)',
+                                cursor: 'pointer',
+                                padding: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                              }}
+                            >
+                              <ExternalLink size={12} />
+                            </button>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{
+                            fontSize: '11px',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            backgroundColor: 'var(--bg-active)',
+                            color: 'var(--text-secondary)',
+                          }}>
+                            {rel.type}
+                          </span>
+
+                          <button
+                            onClick={() => handleRemoveRelationship(idx)}
+                            title="Remove relationship"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              cursor: 'pointer',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = '#dc2626')}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Add Relationship Form */}
+              <form
+                onSubmit={handleAddRelationship}
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  alignItems: 'center',
+                  paddingTop: '10px',
+                  borderTop: '1px dashed var(--border-subtle)',
+                }}
+              >
+                {/* Target dropdown or custom input */}
+                <input
+                  list="lore-targets-datalist"
+                  value={newRelTo}
+                  onChange={(e) => setNewRelTo(e.target.value)}
+                  placeholder="Target (character/place)..."
+                  style={{
+                    flex: 1,
+                    fontSize: '12px',
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-subtle)',
+                    backgroundColor: 'var(--bg-surface)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                  }}
+                />
+                <datalist id="lore-targets-datalist">
+                  {loreList
+                    .filter((l) => l.id !== activeEntry.id)
+                    .map((l) => (
+                      <option key={l.id} value={l.name} />
+                    ))}
+                </datalist>
+
+                <input
+                  value={newRelType}
+                  onChange={(e) => setNewRelType(e.target.value)}
+                  placeholder="Relationship (e.g. Sister, Rival, Mentor)..."
+                  style={{
+                    flex: 1,
+                    fontSize: '12px',
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-subtle)',
+                    backgroundColor: 'var(--bg-surface)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                  }}
+                />
+
+                <button
+                  type="submit"
+                  disabled={!newRelTo.trim() || !newRelType.trim()}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: 'var(--accent-primary)',
+                    color: '#fff',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    cursor: (!newRelTo.trim() || !newRelType.trim()) ? 'not-allowed' : 'pointer',
+                    opacity: (!newRelTo.trim() || !newRelType.trim()) ? 0.6 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <Plus size={13} />
+                  <span>Add Link</span>
+                </button>
+              </form>
+            </div>
           </div>
         ) : (
           <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>

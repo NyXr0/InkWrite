@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FolderItem, SceneItem } from '../../types/project';
 import { 
   ChevronRight, 
@@ -7,9 +7,12 @@ import {
   Folder, 
   FolderOpen, 
   Plus, 
+  FolderPlus,
   Compass, 
   BookMarked,
-  Trash2
+  Trash2,
+  Edit2,
+  Check
 } from 'lucide-react';
 
 interface ManuscriptTreeProps {
@@ -17,6 +20,9 @@ interface ManuscriptTreeProps {
   activeSceneId: string;
   onSelectScene: (sceneId: string) => void;
   onAddScene: (parentFolderId: string) => void;
+  onAddFolder: (parentFolderId?: string) => void;
+  onRenameScene: (sceneId: string, newTitle: string) => void;
+  onRenameFolder: (folderId: string, newTitle: string) => void;
   onDeleteScene: (sceneId: string) => void;
   onDeleteFolder: (folderId: string) => void;
   onOpenCodex: () => void;
@@ -29,6 +35,9 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
   activeSceneId,
   onSelectScene,
   onAddScene,
+  onAddFolder,
+  onRenameScene,
+  onRenameFolder,
   onDeleteScene,
   onDeleteFolder,
   onOpenCodex,
@@ -39,6 +48,45 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
     'part-2': true,
   });
 
+  // Inline rename state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState<string>('');
+  const [editingType, setEditingType] = useState<'scene' | 'folder' | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingId && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingId]);
+
+  const startRename = (id: string, currentTitle: string, type: 'scene' | 'folder', e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(id);
+    setEditingTitle(currentTitle);
+    setEditingType(type);
+  };
+
+  const commitRename = () => {
+    if (!editingId) return;
+    const trimmed = editingTitle.trim();
+    if (trimmed.length > 0) {
+      if (editingType === 'scene') {
+        onRenameScene(editingId, trimmed);
+      } else if (editingType === 'folder') {
+        onRenameFolder(editingId, trimmed);
+      }
+    }
+    setEditingId(null);
+    setEditingType(null);
+  };
+
+  const cancelRename = () => {
+    setEditingId(null);
+    setEditingType(null);
+  };
+
   const toggleFolder = (folderId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setCollapsedFolders((prev) => ({
@@ -47,7 +95,9 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
     }));
   };
 
-  const percentProgress = Math.min(100, Math.round((totalWords / targetWords) * 100));
+  const percentProgress = targetWords > 0 
+    ? Math.min(100, Math.round((totalWords / targetWords) * 100))
+    : 0;
 
   const handleDeleteFolderClick = (e: React.MouseEvent, folder: FolderItem) => {
     e.stopPropagation();
@@ -77,11 +127,13 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
         return sum;
       };
       const fWords = getFolderWords(item);
+      const isEditing = editingId === item.id;
 
       return (
         <div key={item.id} style={{ display: 'flex', flexDirection: 'column' }}>
           <div
             onClick={(e) => toggleFolder(item.id, e)}
+            onDoubleClick={(e) => startRename(item.id, item.title, 'folder', e)}
             className="binder-folder-row"
             style={{
               display: 'flex',
@@ -100,16 +152,42 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', flex: 1 }}>
               <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
                 {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
               </span>
               <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
                 {isCollapsed ? <Folder size={14} /> : <FolderOpen size={14} />}
               </span>
-              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {item.title}
-              </span>
+
+              {isEditing ? (
+                <input
+                  ref={inputRef}
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitRename();
+                    if (e.key === 'Escape') cancelRename();
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 'inherit',
+                    padding: '1px 4px',
+                    border: '1px solid var(--accent-primary)',
+                    borderRadius: '3px',
+                    backgroundColor: 'var(--bg-surface)',
+                    color: 'var(--text-primary)',
+                    width: '140px',
+                    outline: 'none',
+                  }}
+                />
+              ) : (
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {item.title}
+                </span>
+              )}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -118,12 +196,14 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
                   {fWords.toLocaleString()}
                 </span>
               )}
+
+              {/* Add Scene inside folder */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onAddScene(item.id);
                 }}
-                title="Add Scene"
+                title="Add Scene into this chapter"
                 style={{
                   padding: '2px',
                   borderRadius: '3px',
@@ -134,7 +214,24 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
                 onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
               >
-                <Plus size={12} />
+                <Plus size={13} />
+              </button>
+
+              {/* Rename Folder */}
+              <button
+                onClick={(e) => startRename(item.id, item.title, 'folder', e)}
+                title="Rename Chapter / Folder"
+                style={{
+                  padding: '2px',
+                  borderRadius: '3px',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+              >
+                <Edit2 size={11} />
               </button>
 
               {depth > 0 && (
@@ -168,10 +265,13 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
 
     // Scene Item
     const isActive = item.id === activeSceneId;
+    const isEditing = editingId === item.id;
+
     return (
       <div
         key={item.id}
         onClick={() => onSelectScene(item.id)}
+        onDoubleClick={(e) => startRename(item.id, item.title, 'scene', e)}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -189,23 +289,47 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
         }}
         onMouseEnter={(e) => {
           if (!isActive) e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-          const delBtn = e.currentTarget.querySelector('.scene-delete-btn') as HTMLElement;
-          if (delBtn) delBtn.style.opacity = '1';
+          const actionBtns = e.currentTarget.querySelector('.scene-action-buttons') as HTMLElement;
+          if (actionBtns) actionBtns.style.opacity = '1';
         }}
         onMouseLeave={(e) => {
           if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
-          const delBtn = e.currentTarget.querySelector('.scene-delete-btn') as HTMLElement;
-          if (delBtn) delBtn.style.opacity = '0';
+          const actionBtns = e.currentTarget.querySelector('.scene-action-buttons') as HTMLElement;
+          if (actionBtns) actionBtns.style.opacity = '0';
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1 }}>
           <FileText size={13} color={isActive ? 'var(--accent-primary)' : 'var(--text-muted)'} />
-          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {item.title}
-          </span>
+          {isEditing ? (
+            <input
+              ref={inputRef}
+              value={editingTitle}
+              onChange={(e) => setEditingTitle(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename();
+                if (e.key === 'Escape') cancelRename();
+              }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                fontSize: '13px',
+                padding: '1px 4px',
+                border: '1px solid var(--accent-primary)',
+                borderRadius: '3px',
+                backgroundColor: 'var(--bg-surface)',
+                color: 'var(--text-primary)',
+                width: '130px',
+                outline: 'none',
+              }}
+            />
+          ) : (
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {item.title}
+            </span>
+          )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <span style={{
             fontSize: '11px',
             fontFamily: 'var(--font-mono)',
@@ -217,24 +341,39 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
             {item.wordCount.toLocaleString()}
           </span>
 
-          <button
-            className="scene-delete-btn"
-            onClick={(e) => handleDeleteSceneClick(e, item)}
-            title="Delete Scene"
-            style={{
-              padding: '2px',
-              borderRadius: '3px',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              opacity: 0,
-              transition: 'opacity 0.15s ease',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#dc2626')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
-          >
-            <Trash2 size={12} />
-          </button>
+          <div className="scene-action-buttons" style={{ display: 'flex', alignItems: 'center', gap: '2px', opacity: 0, transition: 'opacity 0.15s ease' }}>
+            <button
+              onClick={(e) => startRename(item.id, item.title, 'scene', e)}
+              title="Rename Scene"
+              style={{
+                padding: '2px',
+                borderRadius: '3px',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+            >
+              <Edit2 size={11} />
+            </button>
+
+            <button
+              onClick={(e) => handleDeleteSceneClick(e, item)}
+              title="Delete Scene"
+              style={{
+                padding: '2px',
+                borderRadius: '3px',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#dc2626')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -265,25 +404,56 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
           textTransform: 'uppercase',
           color: 'var(--text-muted)',
         }}>
-          <span>Manuscript</span>
-          <button
-            onClick={() => {
-              if (manuscript.length > 0 && manuscript[0].children.length > 0) {
-                const firstFolder = manuscript[0].children[0];
-                if (firstFolder.type === 'folder') onAddScene(firstFolder.id);
-              }
-            }}
-            title="Add Scene"
-            style={{
-              padding: '3px',
-              borderRadius: '4px',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <Plus size={14} />
-          </button>
+          <span>Manuscript Binder</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <button
+              onClick={() => onAddFolder()}
+              title="Add New Chapter / Section"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '2px',
+                padding: '2px 5px',
+                borderRadius: '4px',
+                color: 'var(--text-muted)',
+                fontSize: '10px',
+                cursor: 'pointer',
+                border: '1px solid var(--border-subtle)',
+                backgroundColor: 'var(--bg-surface)',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+            >
+              <FolderPlus size={12} />
+              <span>Chapter</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (manuscript.length > 0) {
+                  // Find first folder or use root
+                  const firstFolder = manuscript[0].children?.find((c) => c.type === 'folder') || manuscript[0];
+                  onAddScene(firstFolder.id);
+                }
+              }}
+              title="Add New Scene"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '2px',
+                padding: '2px 5px',
+                borderRadius: '4px',
+                color: '#fff',
+                backgroundColor: 'var(--accent-primary)',
+                fontSize: '10px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              <Plus size={12} />
+              <span>Scene</span>
+            </button>
+          </div>
         </div>
 
         {/* Tree Items */}
@@ -312,31 +482,13 @@ export const ManuscriptTree: React.FC<ManuscriptTreeProps> = ({
               borderRadius: '4px',
               textAlign: 'left',
               width: '100%',
+              cursor: 'pointer',
             }}
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
             <Compass size={14} color="var(--accent-primary)" />
             <span>Characters & places</span>
-          </button>
-
-          <button
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '6px 8px',
-              fontSize: '13px',
-              color: 'var(--text-secondary)',
-              borderRadius: '4px',
-              textAlign: 'left',
-              width: '100%',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-          >
-            <BookMarked size={14} color="var(--accent-secondary)" />
-            <span>Research & notes</span>
           </button>
         </div>
       </div>

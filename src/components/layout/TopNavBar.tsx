@@ -21,7 +21,8 @@ import {
   LogOut,
   Palette,
   PenTool,
-  Library
+  Library,
+  Download
 } from 'lucide-react';
 
 interface TopNavBarProps {
@@ -32,6 +33,7 @@ interface TopNavBarProps {
   onSelectTheme: (theme: ThemeMode) => void;
   onOpenPalette: () => void;
   onOpenAppearance: () => void;
+  onOpenCompile?: () => void;
   onEnterFocusMode: () => void;
   projects: ProjectData[];
   activeProjectId: string;
@@ -50,6 +52,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
   onSelectTheme,
   onOpenPalette,
   onOpenAppearance,
+  onOpenCompile,
   onEnterFocusMode,
   projects,
   activeProjectId,
@@ -279,6 +282,30 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
                     <span>Manage All Projects...</span>
                   </button>
 
+                  {onOpenCompile && (
+                    <button
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        onOpenCompile();
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        fontSize: '13px',
+                        color: 'var(--text-secondary)',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                      <Download size={14} />
+                      <span>Compile & Export Novel...</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       setIsDropdownOpen(false);
@@ -481,6 +508,32 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
 
       {/* Right: Actions, Themes, and Sync Status */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Compile & Export Button */}
+        {onOpenCompile && (
+          <button
+            onClick={onOpenCompile}
+            title="Compile & Export Manuscript (.md, .txt, .html, .json)"
+            style={{
+              padding: '5px 10px',
+              borderRadius: '6px',
+              color: 'var(--text-primary)',
+              backgroundColor: 'var(--bg-active)',
+              border: '1px solid var(--border-subtle)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-active)')}
+          >
+            <Download size={14} color="var(--accent-primary)" />
+            <span>Export</span>
+          </button>
+        )}
+
         {/* Customize Appearance & Background */}
         <button
           onClick={onOpenAppearance}

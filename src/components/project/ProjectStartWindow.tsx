@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ProjectData, ThemeMode } from '../../types/project';
 import { ProjectStorage } from '../../core/storage';
 import { 
@@ -13,7 +13,8 @@ import {
   Coffee,
   Sparkles,
   AlertTriangle,
-  Palette
+  Palette,
+  Upload
 } from 'lucide-react';
 
 interface ProjectStartWindowProps {
@@ -30,6 +31,7 @@ interface ProjectStartWindowProps {
   theme: ThemeMode;
   onSelectTheme: (theme: ThemeMode) => void;
   onOpenAppearance?: () => void;
+  onImportProject?: (project: ProjectData) => void;
 }
 
 export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
@@ -40,7 +42,9 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
   theme,
   onSelectTheme,
   onOpenAppearance,
+  onImportProject,
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [title, setTitle] = useState('');
   const [targetWords, setTargetWords] = useState(80000);
@@ -52,6 +56,38 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
     return d.toISOString().split('T')[0];
   });
   const [projectToDelete, setProjectToDelete] = useState<ProjectData | null>(null);
+
+
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const rawJson = event.target?.result as string;
+        const parsed = JSON.parse(rawJson);
+
+        if (!parsed || !parsed.settings || !parsed.manuscript || !Array.isArray(parsed.manuscript)) {
+          alert('Invalid Inkwell project schema. Missing settings or manuscript arrays.');
+          return;
+        }
+
+        if (!parsed.settings.id) {
+          parsed.settings.id = 'proj-' + Date.now();
+        }
+
+        if (onImportProject) {
+          onImportProject(parsed as ProjectData);
+          onOpenProject(parsed.settings.id);
+        }
+      } catch (err: any) {
+        alert(err.message || 'Failed to parse JSON backup file.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,6 +136,46 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
         alignItems: 'center',
         gap: '8px',
       }}>
+        {onImportProject && (
+          <>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileImport}
+              accept=".json,application/json"
+              style={{ display: 'none' }}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              title="Restore / Import project from JSON backup file"
+              style={{
+                padding: '6px 10px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--bg-active)',
+                color: 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                border: '1px solid var(--border-subtle)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-active)';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
+            >
+              <Upload size={14} />
+              <span>Import Backup</span>
+            </button>
+          </>
+        )}
+
         {onOpenAppearance && (
           <button
             onClick={onOpenAppearance}
