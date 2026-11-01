@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LoreCategory } from '../../types/project';
+import { CODEX_CATEGORIES } from '../../core/codexSchema';
 import { 
   User, 
   MapPin, 
@@ -14,17 +15,7 @@ import {
 interface NewCodexModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (category: LoreCategory, name: string, starterContent: string) => void;
-}
-
-interface CategoryOption {
-  id: LoreCategory;
-  name: string;
-  tagline: string;
-  icon: React.ReactNode;
-  bgBadge: string;
-  borderColor: string;
-  template: (name: string) => string;
+  onCreate: (category: LoreCategory, name: string, starterContent: string, attributes?: Record<string, string>, role?: string) => void;
 }
 
 export const NewCodexModal: React.FC<NewCodexModalProps> = ({
@@ -58,139 +49,61 @@ export const NewCodexModal: React.FC<NewCodexModalProps> = ({
 
   if (!isOpen) return null;
 
-  const categories: CategoryOption[] = [
-    {
-      id: 'character',
-      name: 'Character',
-      tagline: 'Protagonist, antagonist, companion, historical figure, or creature.',
-      icon: <User size={22} color="var(--accent-primary)" />,
-      bgBadge: 'var(--accent-pill)',
-      borderColor: 'var(--accent-primary)',
-      template: (title) => `### Overview
-A brief 1-2 sentence description of who **${title}** is and their role in the story.
+  const getCategoryIcon = (catId: LoreCategory, size: number = 20) => {
+    switch (catId) {
+      case 'character':
+        return <User size={size} color={CODEX_CATEGORIES.character.color} />;
+      case 'location':
+        return <MapPin size={size} color={CODEX_CATEGORIES.location.color} />;
+      case 'lore':
+        return <Sparkles size={size} color={CODEX_CATEGORIES.lore.color} />;
+      case 'item':
+        return <Package size={size} color={CODEX_CATEGORIES.item.color} />;
+      case 'faction':
+        return <Shield size={size} color={CODEX_CATEGORIES.faction.color} />;
+    }
+  };
 
-### Core Profile
-- **Role:** Protagonist / Antagonist / Supporting Cast
-- **Age / Species:** 
-- **Occupation / Title:** 
-- **Core Desire:** What do they want more than anything?
-- **Internal Conflict / Flaw:** What fear or weakness holds them back?
-
-### Appearance & Mannerisms
-Distinguishing physical features, posture, signature clothing, voice.
-
-### Backstory & Motivations
-Where they come from, pivotal life moments, and why they act.
-
-### Key Relationships
-- **Allies & Friends:**
-- **Rivals & Adversaries:**
-`,
-    },
-    {
-      id: 'location',
-      name: 'Location',
-      tagline: 'Realm, kingdom, city, building, celestial body, or wild terrain.',
-      icon: <MapPin size={22} color="#c06c38" />,
-      bgBadge: 'rgba(192, 108, 56, 0.15)',
-      borderColor: '#c06c38',
-      template: (title) => `### Overview
-Atmospheric summary of **${title}**.
-
-### Geography & Atmosphere
-- **Region / Kingdom:** 
-- **Climate & Weather:** 
-- **Sensory Impressions:** Distinct sights, ambient sounds, scents.
-
-### Key Landmarks & Architecture
-Notable districts, monuments, ruins, or secret rooms.
-
-### Inhabitants, Culture & Governance
-Who controls this area, local laws, customs, and hazards.
-
-### Narrative Significance
-Why scenes take place here and what important moments occur.
-`,
-    },
-    {
-      id: 'lore',
-      name: 'Lore & Worldbuilding',
-      tagline: 'Magic system, mythology, religion, ancient history, or cosmic rule.',
-      icon: <Sparkles size={22} color="#eab308" />,
-      bgBadge: 'rgba(234, 179, 8, 0.15)',
-      borderColor: '#eab308',
-      template: (title) => `### Overview
-The foundational concept, myth, or system of **${title}**.
-
-### Rules, Principles & Costs
-- How does it function in this world?
-- What are the restrictions, costs, or lethal dangers?
-- Who possesses knowledge or mastery of it?
-
-### Historical Origins & Legends
-The ancient discovery, mythical war, divine origin, or historical treaty.
-
-### Narrative Impact
-How this lore influences character decisions and the main plot stakes.
-`,
-    },
-    {
-      id: 'item',
-      name: 'Item / Artifact',
-      tagline: 'Weapon, enchanted relic, technology, heirloom, or document.',
-      icon: <Package size={22} color="#06b6d4" />,
-      bgBadge: 'rgba(6, 182, 212, 0.15)',
-      borderColor: '#06b6d4',
-      template: (title) => `### Overview
-Physical description and significance of **${title}**.
-
-### Properties & Abilities
-- **Type:** Relic / Weapon / Tool / Technology
-- **Special Capabilities:**
-- **Limitations / Requirements:**
-
-### Provenance & Current Keeper
-Who forged or found it, and who holds or hunts it now.
-`,
-    },
-    {
-      id: 'faction',
-      name: 'Faction / Order',
-      tagline: 'Kingdom, guild, religious order, rebellion, or secret syndicate.',
-      icon: <Shield size={22} color="#a855f7" />,
-      bgBadge: 'rgba(168, 85, 247, 0.15)',
-      borderColor: '#a855f7',
-      template: (title) => `### Overview
-The public purpose and reputation of **${title}**.
-
-### Leadership & Structure
-Key commanders, ranks, oaths, and internal politics.
-
-### Ideology & Objective
-What they stand for and what lengths they will go to succeed.
-
-### Allies & Enemies
-`,
-    },
-  ];
+  const categoryList: LoreCategory[] = ['character', 'location', 'lore', 'item', 'faction'];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const chosen = categories.find((c) => c.id === selectedCategory) || categories[0];
-    const finalName = name.trim() || `New ${chosen.name}`;
-    const starterContent = chosen.template(finalName);
-    onCreate(selectedCategory, finalName, starterContent);
+    const config = CODEX_CATEGORIES[selectedCategory];
+    const finalName = name.trim() || `New ${config.name}`;
+    const starterContent = config.defaultTemplate(finalName);
+    const initialAttributes: Record<string, string> = {};
+    
+    // Set a sensible default role based on archetype or category
+    let defaultRole = '';
+    if (selectedCategory === 'character') defaultRole = 'Protagonist';
+    else if (selectedCategory === 'location') defaultRole = 'Sovereign Realm';
+    else if (selectedCategory === 'lore') defaultRole = 'Magic System';
+    else if (selectedCategory === 'item') defaultRole = 'Ancient Relic';
+    else if (selectedCategory === 'faction') defaultRole = 'Knightly Order';
+
+    onCreate(selectedCategory, finalName, starterContent, initialAttributes, defaultRole);
     onClose();
   };
 
   const handleSelectCategoryAndSubmit = (catId: LoreCategory) => {
     setSelectedCategory(catId);
-    const chosen = categories.find((c) => c.id === catId) || categories[0];
-    const finalName = name.trim() || `New ${chosen.name}`;
-    const starterContent = chosen.template(finalName);
-    onCreate(catId, finalName, starterContent);
+    const config = CODEX_CATEGORIES[catId];
+    const finalName = name.trim() || `New ${config.name}`;
+    const starterContent = config.defaultTemplate(finalName);
+    const initialAttributes: Record<string, string> = {};
+
+    let defaultRole = '';
+    if (catId === 'character') defaultRole = 'Protagonist';
+    else if (catId === 'location') defaultRole = 'Sovereign Realm';
+    else if (catId === 'lore') defaultRole = 'Magic System';
+    else if (catId === 'item') defaultRole = 'Ancient Relic';
+    else if (catId === 'faction') defaultRole = 'Knightly Order';
+
+    onCreate(catId, finalName, starterContent, initialAttributes, defaultRole);
     onClose();
   };
+
+  const activeConfig = CODEX_CATEGORIES[selectedCategory];
 
   return (
     <div
@@ -198,8 +111,8 @@ What they stand for and what lengths they will go to succeed.
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.55)',
-        backdropFilter: 'blur(4px)',
+        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+        backdropFilter: 'blur(5px)',
         zIndex: 10010,
         display: 'flex',
         alignItems: 'center',
@@ -211,8 +124,8 @@ What they stand for and what lengths they will go to succeed.
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: '560px',
-          maxHeight: '88vh',
+          width: '600px',
+          maxHeight: '90vh',
           backgroundColor: 'var(--bg-surface)',
           borderRadius: '12px',
           border: '1px solid var(--border-subtle)',
@@ -224,7 +137,7 @@ What they stand for and what lengths they will go to succeed.
       >
         {/* Modal Header */}
         <div style={{
-          padding: '18px 22px',
+          padding: '18px 24px',
           borderBottom: '1px solid var(--border-subtle)',
           display: 'flex',
           alignItems: 'center',
@@ -232,11 +145,11 @@ What they stand for and what lengths they will go to succeed.
           backgroundColor: 'var(--bg-app)',
         }}>
           <div>
-            <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' }}>
-              Create New Story Element
+            <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '3px' }}>
+              Create New Codex & Lore Element
             </h2>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              Choose whether to add a Character, Location, Lore, or Worldbuilding asset.
+              Select a specialized story element type with dedicated attributes and interconnected cross-linking.
             </p>
           </div>
           <button
@@ -246,6 +159,8 @@ What they stand for and what lengths they will go to succeed.
               borderRadius: '4px',
               color: 'var(--text-muted)',
               cursor: 'pointer',
+              border: 'none',
+              background: 'transparent',
             }}
             onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
@@ -254,102 +169,155 @@ What they stand for and what lengths they will go to succeed.
           </button>
         </div>
 
-        {/* Modal Form Content */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ padding: '20px 22px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            {/* Optional Name Input */}
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>
-                Entry Name <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(Optional — can be changed anytime)</span>
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+            
+            {/* Title / Name Input */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '11px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                color: 'var(--text-muted)',
+                marginBottom: '8px',
+              }}>
+                Element Name
               </label>
               <input
                 ref={inputRef}
-                type="text"
-                placeholder="e.g. Captain Eleanor, City of Oakhaven, The Starfire Gem..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                placeholder={`Name (e.g. ${
+                  selectedCategory === 'character' ? 'Eldrin the Grey, Mara Vance...' :
+                  selectedCategory === 'location' ? 'The Silver Citadel, Whisperwood...' :
+                  selectedCategory === 'lore' ? 'The Ether Tide, Rite of Awakening...' :
+                  selectedCategory === 'item' ? 'Blade of Dawn, Crown of Thorns...' :
+                  'Order of the Sun, Shadow Syndicate...'
+                })`}
                 style={{
                   width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '6px',
+                  fontSize: '15px',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
                   border: '1px solid var(--border-subtle)',
                   backgroundColor: 'var(--bg-app)',
                   color: 'var(--text-primary)',
-                  fontSize: '13px',
                   outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = activeConfig.color;
+                  e.currentTarget.style.boxShadow = `0 0 0 3px ${activeConfig.bgLight}`;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                  e.currentTarget.style.boxShadow = 'none';
                 }}
               />
             </div>
 
-            {/* Category Choices */}
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
-                Select Category
+            {/* Category Selector List */}
+            <div style={{ marginBottom: '8px' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '11px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                color: 'var(--text-muted)',
+                marginBottom: '10px',
+              }}>
+                Select Category (Tailored Attributes & Canon Linking)
               </label>
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {categories.map((cat) => {
-                  const isSelected = selectedCategory === cat.id;
+                {categoryList.map((catId) => {
+                  const cat = CODEX_CATEGORIES[catId];
+                  const isSelected = selectedCategory === catId;
 
                   return (
                     <div
-                      key={cat.id}
-                      onClick={() => setSelectedCategory(cat.id)}
-                      onDoubleClick={() => handleSelectCategoryAndSubmit(cat.id)}
+                      key={catId}
+                      onClick={() => setSelectedCategory(catId)}
+                      onDoubleClick={() => handleSelectCategoryAndSubmit(catId)}
                       style={{
-                        padding: '12px 14px',
-                        borderRadius: '8px',
-                        border: isSelected ? `2px solid ${cat.borderColor}` : '1px solid var(--border-subtle)',
-                        backgroundColor: isSelected ? 'var(--bg-active)' : 'var(--bg-app)',
-                        cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        gap: '12px',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: isSelected
+                          ? `1.5px solid ${cat.color}`
+                          : '1px solid var(--border-subtle)',
+                        backgroundColor: isSelected ? cat.bgLight : 'var(--bg-app)',
+                        cursor: 'pointer',
                         transition: 'all 0.15s ease',
                       }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--bg-app)';
-                      }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                         <div style={{
-                          width: '40px',
-                          height: '40px',
+                          width: '36px',
+                          height: '36px',
                           borderRadius: '8px',
-                          backgroundColor: cat.bgBadge,
+                          backgroundColor: 'var(--bg-surface)',
+                          border: `1px solid ${isSelected ? cat.color : 'var(--border-subtle)'}`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           flexShrink: 0,
                         }}>
-                          {cat.icon}
+                          {getCategoryIcon(catId, 18)}
                         </div>
-                        <div>
-                          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                            {cat.name}
+
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                              {cat.name}
+                            </span>
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              backgroundColor: cat.bgLight,
+                              color: cat.color,
+                              border: `1px solid ${cat.borderLight}`,
+                            }}>
+                              {cat.tagline}
+                            </span>
                           </div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.3' }}>
-                            {cat.tagline}
-                          </div>
+                          <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+                            {cat.description}
+                          </p>
                         </div>
                       </div>
 
-                      <div style={{
-                        width: '20px',
-                        height: '20px',
-                        borderRadius: '50%',
-                        border: isSelected ? `2px solid ${cat.borderColor}` : '1px solid var(--border-subtle)',
-                        backgroundColor: isSelected ? cat.borderColor : 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fff',
-                        flexShrink: 0,
-                      }}>
-                        {isSelected && <Check size={12} strokeWidth={3} />}
+                      <div style={{ marginLeft: '12px' }}>
+                        {isSelected ? (
+                          <div style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            backgroundColor: cat.color,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fff',
+                          }}>
+                            <Check size={12} strokeWidth={3} />
+                          </div>
+                        ) : (
+                          <div style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '50%',
+                            border: '1px solid var(--border-subtle)',
+                          }} />
+                        )}
                       </div>
                     </div>
                   );
@@ -358,17 +326,17 @@ What they stand for and what lengths they will go to succeed.
             </div>
           </div>
 
-          {/* Modal Footer */}
+          {/* Footer Controls */}
           <div style={{
-            padding: '14px 22px',
+            padding: '14px 24px',
             borderTop: '1px solid var(--border-subtle)',
             backgroundColor: 'var(--bg-app)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
           }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              Tip: Double-click any card to create immediately
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              Tip: Double-click any category to create instantly.
             </span>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -378,8 +346,11 @@ What they stand for and what lengths they will go to succeed.
                 style={{
                   padding: '7px 14px',
                   borderRadius: '6px',
-                  fontSize: '12px',
+                  border: '1px solid var(--border-subtle)',
+                  backgroundColor: 'var(--bg-surface)',
                   color: 'var(--text-secondary)',
+                  fontSize: '12px',
+                  fontWeight: 500,
                   cursor: 'pointer',
                 }}
               >
@@ -394,15 +365,17 @@ What they stand for and what lengths they will go to succeed.
                   gap: '6px',
                   padding: '7px 16px',
                   borderRadius: '6px',
-                  fontSize: '13px',
+                  border: 'none',
+                  backgroundColor: activeConfig.color,
+                  color: '#fff',
+                  fontSize: '12px',
                   fontWeight: 600,
-                  backgroundColor: 'var(--accent-primary)',
-                  color: '#ffffff',
                   cursor: 'pointer',
+                  boxShadow: `0 2px 6px ${activeConfig.bgLight}`,
                 }}
               >
-                <span>Create {categories.find((c) => c.id === selectedCategory)?.name}</span>
-                <ArrowRight size={14} />
+                <span>Create {activeConfig.name}</span>
+                <ArrowRight size={13} />
               </button>
             </div>
           </div>

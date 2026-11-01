@@ -115,9 +115,14 @@ export class ProjectStorage {
           name: povName,
           category: 'character',
           role: 'Protagonist',
-          summary: 'The central character of this story.',
+          summary: 'The central protagonist of this narrative.',
           content: `### ${povName}\n\n**Role:** Protagonist\n\nAdd character arc, backstory, and motivations.`,
           relationships: [],
+          aliases: [],
+          attributes: {
+            archetype: 'Protagonist',
+            vitalStatus: 'Alive',
+          },
         },
       ],
       timeline: [

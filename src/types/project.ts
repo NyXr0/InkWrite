@@ -75,6 +75,7 @@ export interface LoreEntry {
   content: string;
   relationships?: { to: string; type: string }[];
   aliases?: string[];
+  attributes?: Record<string, string>;
 }
 
 export interface TimelineEvent {

@@ -575,7 +575,13 @@ export const App: React.FC = () => {
   };
 
   // Add lore
-  const handleAddLore = (category: LoreCategory, name?: string, content?: string): string => {
+  const handleAddLore = (
+    category: LoreCategory, 
+    name?: string, 
+    content?: string,
+    attributes?: Record<string, string>,
+    role?: string
+  ): string => {
     const defaultName = name?.trim() || `New ${category.charAt(0).toUpperCase() + category.slice(1)}`;
     const newId = `lore-${Date.now()}`;
     const newLore: LoreEntry = {
@@ -583,8 +589,12 @@ export const App: React.FC = () => {
       slug: defaultName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `new-${category}`,
       name: defaultName,
       category,
+      role: role || '',
       summary: '',
       content: content || `### ${defaultName}\n\nAdd details and notes here.`,
+      attributes: attributes || {},
+      relationships: [],
+      aliases: [],
     };
 
     updateActiveProject((prev) => ({
@@ -974,6 +984,8 @@ export const App: React.FC = () => {
               setActiveSceneId(id);
               setCurrentView('write');
             }}
+            scenes={allScenes}
+            timelineEvents={activeProject.timeline}
           />
         )}
 

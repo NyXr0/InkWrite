@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { LoreEntry } from '../../types/project';
-import { User, MapPin, Sparkles, BookOpen } from 'lucide-react';
+import { LoreEntry, LoreCategory } from '../../types/project';
+import { CODEX_CATEGORIES } from '../../core/codexSchema';
+import { User, MapPin, Sparkles, Package, Shield, BookOpen } from 'lucide-react';
 
 interface LoreTagPopupProps {
   query: string;
@@ -25,7 +26,8 @@ export const LoreTagPopup: React.FC<LoreTagPopupProps> = ({
     return (
       item.name.toLowerCase().includes(cleanQuery) ||
       item.slug.toLowerCase().includes(cleanQuery) ||
-      (item.role && item.role.toLowerCase().includes(cleanQuery))
+      (item.role && item.role.toLowerCase().includes(cleanQuery)) ||
+      (item.aliases && item.aliases.some((a) => a.toLowerCase().includes(cleanQuery)))
     );
   });
 
@@ -60,17 +62,21 @@ export const LoreTagPopup: React.FC<LoreTagPopupProps> = ({
     return null;
   }
 
-  const getCategoryIcon = (category: string) => {
+  const getCategoryIcon = (category: LoreCategory) => {
+    const color = CODEX_CATEGORIES[category]?.color || 'var(--accent-primary)';
     switch (category) {
       case 'character':
-        return <User size={12} />;
+        return <User size={13} color={color} />;
       case 'location':
-        return <MapPin size={12} />;
+        return <MapPin size={13} color={color} />;
       case 'lore':
+        return <Sparkles size={13} color={color} />;
       case 'item':
-        return <Sparkles size={12} />;
+        return <Package size={13} color={color} />;
+      case 'faction':
+        return <Shield size={13} color={color} />;
       default:
-        return <BookOpen size={12} />;
+        return <BookOpen size={13} color={color} />;
     }
   };
 
@@ -80,7 +86,7 @@ export const LoreTagPopup: React.FC<LoreTagPopupProps> = ({
         position: 'fixed',
         top: `${position.top}px`,
         left: `${position.left}px`,
-        width: '280px',
+        width: '300px',
         backgroundColor: 'var(--bg-popover)',
         border: '1px solid var(--border-subtle)',
         borderRadius: '8px',
@@ -100,15 +106,16 @@ export const LoreTagPopup: React.FC<LoreTagPopupProps> = ({
         backgroundColor: 'var(--bg-active)',
         display: 'flex',
         justifyContent: 'space-between',
+        alignItems: 'center',
       }}>
-        <span>MENTION LORE ({filtered.length})</span>
+        <span>MENTION STORY ELEMENT ({filtered.length})</span>
         <span style={{ fontFamily: 'var(--font-mono)' }}>@{cleanQuery}</span>
       </div>
 
-      <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+      <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
         {filtered.map((item, idx) => {
           const isSelected = idx === selectedIndex;
-          const initial = item.name.charAt(0).toUpperCase();
+          const config = CODEX_CATEGORIES[item.category] || CODEX_CATEGORIES.character;
 
           return (
             <div
@@ -121,31 +128,30 @@ export const LoreTagPopup: React.FC<LoreTagPopupProps> = ({
                 padding: '8px 10px',
                 cursor: 'pointer',
                 backgroundColor: isSelected ? 'var(--bg-active)' : 'transparent',
-                borderLeft: isSelected ? '3px solid var(--accent-primary)' : '3px solid transparent',
+                borderLeft: isSelected ? `3px solid ${config.color}` : '3px solid transparent',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{
-                  width: '22px',
-                  height: '22px',
-                  borderRadius: '4px',
-                  backgroundColor: 'var(--accent-pill)',
-                  color: 'var(--accent-pill-text)',
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '5px',
+                  backgroundColor: config.bgLight,
+                  border: `1px solid ${config.borderLight}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '11px',
-                  fontWeight: 600,
+                  flexShrink: 0,
                 }}>
-                  {initial}
+                  {getCategoryIcon(item.category)}
                 </div>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
+                <div style={{ overflow: 'hidden' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                     {item.name}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
-                    {item.role ? ` • ${item.role}` : ''}
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ color: config.color, fontWeight: 600 }}>{config.name}</span>
+                    {item.role && <span>• {item.role}</span>}
                   </div>
                 </div>
               </div>
@@ -176,7 +182,7 @@ export const LoreTagPopup: React.FC<LoreTagPopupProps> = ({
         backgroundColor: 'var(--bg-app)',
         textAlign: 'center',
       }}>
-        Up and down to choose, Esc to dismiss
+        Up/Down to choose, Enter to tag, Esc to dismiss
       </div>
     </div>
   );

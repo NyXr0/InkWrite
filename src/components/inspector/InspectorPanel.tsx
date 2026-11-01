@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { SceneItem, LoreEntry, SceneStatus, Snapshot } from '../../types/project';
+import { SceneItem, LoreEntry, SceneStatus, Snapshot, LoreCategory } from '../../types/project';
+import { CODEX_CATEGORIES } from '../../core/codexSchema';
 import { 
   CheckCircle, 
   Target, 
@@ -7,6 +8,8 @@ import {
   User, 
   MapPin, 
   Sparkles, 
+  Package,
+  Shield,
   Plus,
   Trash2,
   Check,
@@ -53,10 +56,16 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
 
   // Find mentioned lore from scene content (either @Name or [[slug]])
   const mentionedLore = loreList.filter((item) => {
+    const text = scene.content.toLowerCase();
+    const isPov = scene.pov && scene.pov.toLowerCase() === item.name.toLowerCase();
+    const isLocation = scene.locations && scene.locations.some((l) => l.toLowerCase() === item.name.toLowerCase());
+    if (isPov || isLocation) return true;
+
     return (
-      scene.content.toLowerCase().includes(`@${item.name.toLowerCase()}`) ||
-      scene.content.toLowerCase().includes(item.name.toLowerCase()) ||
-      scene.content.toLowerCase().includes(item.slug.toLowerCase())
+      text.includes(`@${item.name.toLowerCase()}`) ||
+      text.includes(`[[${item.slug.toLowerCase()}]]`) ||
+      text.includes(item.name.toLowerCase()) ||
+      (item.aliases && item.aliases.some((a) => text.includes(a.toLowerCase())))
     );
   });
 
@@ -414,25 +423,28 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{
-                      width: '20px',
-                      height: '20px',
+                      width: '22px',
+                      height: '22px',
                       borderRadius: '4px',
-                      backgroundColor: 'var(--accent-pill)',
-                      color: 'var(--accent-pill-text)',
+                      backgroundColor: (CODEX_CATEGORIES[item.category] || CODEX_CATEGORIES.character).bgLight,
+                      border: `1px solid ${(CODEX_CATEGORIES[item.category] || CODEX_CATEGORIES.character).borderLight}`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '10px',
-                      fontWeight: 700,
+                      flexShrink: 0,
                     }}>
-                      {item.name.charAt(0)}
+                      {item.category === 'character' && <User size={11} color={CODEX_CATEGORIES.character.color} />}
+                      {item.category === 'location' && <MapPin size={11} color={CODEX_CATEGORIES.location.color} />}
+                      {item.category === 'lore' && <Sparkles size={11} color={CODEX_CATEGORIES.lore.color} />}
+                      {item.category === 'item' && <Package size={11} color={CODEX_CATEGORIES.item.color} />}
+                      {item.category === 'faction' && <Shield size={11} color={CODEX_CATEGORIES.faction.color} />}
                     </div>
                     <div>
                       <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-primary)' }}>
                         {item.name}
                       </div>
                       <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                        {item.role || item.category}
+                        {item.role || (CODEX_CATEGORIES[item.category] || CODEX_CATEGORIES.character).name}
                       </div>
                     </div>
                   </div>
