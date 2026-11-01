@@ -33,7 +33,10 @@ export class AppearanceStorage {
     root.setAttribute('data-theme', settings.theme);
 
     // Apply prose font
-    root.style.setProperty('--font-serif', settings.proseFont);
+    const proseFamily = settings.proseFont.includes(' ') && !settings.proseFont.startsWith("'") && !settings.proseFont.startsWith('"')
+      ? `'${settings.proseFont}', serif`
+      : settings.proseFont;
+    root.style.setProperty('--font-serif', proseFamily);
 
     // Apply UI font
     root.style.setProperty('--font-sans', settings.uiFont);

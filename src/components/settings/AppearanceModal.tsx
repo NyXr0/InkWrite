@@ -1,12 +1,14 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { 
   AppearanceSettings, 
   BACKGROUND_PRESETS, 
   PROSE_FONTS, 
   ACCENT_PALETTES,
   defaultAppearanceSettings,
-  BaseTheme 
+  BaseTheme,
+  CustomFont
 } from '../../types/appearance';
+import { CustomFontStorage } from '../../core/customFontStorage';
 import { 
   X, 
   Palette, 
@@ -19,7 +21,12 @@ import {
   Sun,
   Moon,
   Coffee,
-  Sparkles
+  Sparkles,
+  Trash2,
+  Plus,
+  AlertCircle,
+  FileUp,
+  CheckCircle2
 } from 'lucide-react';
 
 interface AppearanceModalProps {
@@ -36,8 +43,56 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
   onChange,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fontFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
+  const [isInstallingFont, setIsInstallingFont] = useState(false);
+  const [fontError, setFontError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      CustomFontStorage.loadAllFonts().then(setCustomFonts);
+      setFontError(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const handleFontUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setFontError(null);
+    setIsInstallingFont(true);
+
+    try {
+      const installed = await CustomFontStorage.installFont(file);
+      setCustomFonts((prev) => [...prev.filter((f) => f.id !== installed.id), installed]);
+      // Automatically activate newly installed font as active prose font
+      onChange({
+        ...settings,
+        proseFont: installed.name,
+      });
+    } catch (err: any) {
+      console.error('Failed to install font:', err);
+      setFontError(err.message || 'Failed to install font file.');
+    } finally {
+      setIsInstallingFont(false);
+      if (fontFileInputRef.current) fontFileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteCustomFont = async (font: CustomFont, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const confirmed = window.confirm(`Uninstall custom font "${font.name}" from Inkwell?`);
+    if (confirmed) {
+      await CustomFontStorage.deleteFont(font.id);
+      setCustomFonts((prev) => prev.filter((f) => f.id !== font.id));
+      if (settings.proseFont === font.name) {
+        onChange({ ...settings, proseFont: 'Lora' });
+      }
+    }
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -388,24 +443,186 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
 
           {/* Section 3: Prose Editor Typography */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '10px' }}>
-              Prose Drafting Font
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', display: 'block' }}>
+                  Prose Drafting Font
+                </label>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Choose a classic typeface or install any font file (.ttf, .otf, .woff, .woff2) from your computer.
+                </span>
+              </div>
+
+              {/* Install local font button */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => fontFileInputRef.current?.click()}
+                  disabled={isInstallingFont}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    backgroundColor: 'var(--accent-pill)',
+                    color: 'var(--accent-pill-text)',
+                    cursor: isInstallingFont ? 'not-allowed' : 'pointer',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--accent-pill)')}
+                >
+                  <FileUp size={14} />
+                  <span>{isInstallingFont ? 'Installing font...' : 'Install Local Font...'}</span>
+                </button>
+                <input
+                  ref={fontFileInputRef}
+                  type="file"
+                  accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2"
+                  style={{ display: 'none' }}
+                  onChange={handleFontUpload}
+                />
+              </div>
+            </div>
+
+            {/* Error banner */}
+            {fontError && (
+              <div style={{
+                padding: '8px 12px',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '6px',
+                color: '#ef4444',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '12px',
+              }}>
+                <AlertCircle size={14} />
+                <span>{fontError}</span>
+              </div>
+            )}
+
+            {/* Installed Local Fonts (if any) */}
+            {customFonts.length > 0 && (
+              <div style={{ marginBottom: '14px' }}>
+                <div style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  color: 'var(--accent-primary)',
+                  marginBottom: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}>
+                  <CheckCircle2 size={13} />
+                  <span>Installed Local Fonts ({customFonts.length})</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                  {customFonts.map((f) => {
+                    const isSelected = settings.proseFont === f.name;
+                    return (
+                      <div
+                        key={f.id}
+                        onClick={() => onChange({ ...settings, proseFont: f.name })}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '6px',
+                          border: isSelected ? '2px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+                          backgroundColor: isSelected ? 'var(--bg-active)' : 'var(--bg-app)',
+                          color: 'var(--text-primary)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          minHeight: '68px',
+                          boxShadow: isSelected ? 'var(--shadow-sm)' : 'none',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '4px' }}>
+                          <div style={{ 
+                            fontSize: '15px', 
+                            fontWeight: 600, 
+                            fontFamily: `'${f.name}', serif`,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {f.name}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteCustomFont(f, e)}
+                            title="Uninstall font from Inkwell"
+                            style={{
+                              padding: '3px',
+                              color: 'var(--text-muted)',
+                              borderRadius: '4px',
+                              lineHeight: 1,
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+                          <span style={{ 
+                            fontSize: '10px', 
+                            fontWeight: 700, 
+                            textTransform: 'uppercase', 
+                            color: 'var(--accent-pill-text)',
+                            backgroundColor: 'var(--accent-pill)',
+                            padding: '1px 5px',
+                            borderRadius: '3px',
+                          }}>
+                            {f.format}
+                          </span>
+                          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                            {Math.round(f.fileSize / 1024)} KB
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Curated Classic Typefaces */}
+            <div style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              color: 'var(--text-muted)',
+              marginBottom: '8px',
+            }}>
+              Curated Classic Typefaces
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '14px' }}>
               {PROSE_FONTS.map((f) => {
                 const isSelected = settings.proseFont === f.id;
                 return (
                   <button
                     key={f.id}
+                    type="button"
                     onClick={() => onChange({ ...settings, proseFont: f.id })}
                     style={{
                       padding: '10px 12px',
                       borderRadius: '6px',
                       border: isSelected ? '2px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
-                      backgroundColor: 'var(--bg-app)',
+                      backgroundColor: isSelected ? 'var(--bg-active)' : 'var(--bg-app)',
                       color: 'var(--text-primary)',
                       textAlign: 'left',
                       fontFamily: f.family,
+                      boxShadow: isSelected ? 'var(--shadow-sm)' : 'none',
                     }}
                   >
                     <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>
@@ -419,12 +636,39 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
               })}
             </div>
 
-            {/* Custom font input */}
+            {/* Live Typography Preview Card */}
+            <div style={{
+              padding: '14px 18px',
+              backgroundColor: 'var(--bg-app)',
+              borderRadius: '8px',
+              border: '1px solid var(--border-subtle)',
+              marginBottom: '12px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>
+                  Live Typography Preview • {settings.proseFont} ({settings.fontSize}px)
+                </span>
+              </div>
+              <p style={{
+                fontFamily: settings.proseFont.includes(' ') && !settings.proseFont.startsWith("'")
+                  ? `'${settings.proseFont}', serif`
+                  : settings.proseFont,
+                fontSize: `${settings.fontSize}px`,
+                lineHeight: settings.lineHeight,
+                color: 'var(--text-primary)',
+                margin: 0,
+                letterSpacing: '-0.01em',
+              }}>
+                “The road goes ever on and on, down from the door where it began. Now far ahead the road has gone, and I must follow, if I can, pursuing it with eager feet...”
+              </p>
+            </div>
+
+            {/* Custom OS font input */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Custom font family:</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Or use installed OS font name:</span>
               <input
                 type="text"
-                placeholder="e.g. Bookerly, Palatino, Courier Prime..."
+                placeholder="e.g. Bookerly, Palatino, Courier Prime, Garamond..."
                 value={settings.proseFont}
                 onChange={(e) => onChange({ ...settings, proseFont: e.target.value })}
                 style={{

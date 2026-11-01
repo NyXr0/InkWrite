@@ -25,6 +25,7 @@ import { ProjectHubModal } from './components/project/ProjectHubModal';
 import { NewProjectModal } from './components/project/NewProjectModal';
 import { ProjectStartWindow } from './components/project/ProjectStartWindow';
 import { AppearanceStorage } from './core/appearanceStorage';
+import { CustomFontStorage } from './core/customFontStorage';
 import { AppearanceSettings } from './types/appearance';
 import { AppearanceModal } from './components/settings/AppearanceModal';
 import { CustomBackdrop } from './components/layout/CustomBackdrop';
@@ -63,6 +64,13 @@ export const App: React.FC = () => {
   const activeProject = useMemo(() => {
     return projects.find((p) => p.settings.id === activeProjectId) || projects[0];
   }, [projects, activeProjectId]);
+
+  // Load and register any installed custom fonts on startup
+  useEffect(() => {
+    CustomFontStorage.applyAllFontsToDOM().catch((err) => {
+      console.warn('Custom font load notice on startup:', err);
+    });
+  }, []);
 
   // Sync appearance and theme attributes with DOM and storage
   useEffect(() => {

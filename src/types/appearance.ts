@@ -1,5 +1,15 @@
 export type BaseTheme = 'paper' | 'night' | 'sepia' | 'oled';
 
+export interface CustomFont {
+  id: string;
+  name: string;
+  fileName: string;
+  format: 'truetype' | 'opentype' | 'woff' | 'woff2';
+  dataUrl: string;
+  fileSize: number;
+  createdAt: number;
+}
+
 export interface AppearanceSettings {
   theme: BaseTheme;
   proseFont: string;
