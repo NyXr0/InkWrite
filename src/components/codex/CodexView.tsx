@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { LoreEntry, LoreCategory, SceneItem, TimelineEvent } from '../../types/project';
 import { CODEX_CATEGORIES, CodexCategoryConfig, CodexFieldDefinition } from '../../core/codexSchema';
 import { NewCodexModal } from './NewCodexModal';
+import { ObsidianNodeGraph } from './ObsidianNodeGraph';
 import { 
   User, 
   MapPin, 
@@ -20,7 +21,11 @@ import {
   ArrowRight,
   Info,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Network,
+  Compass,
+  GitFork,
+  Maximize2
 } from 'lucide-react';
 
 interface CodexViewProps {
@@ -40,7 +45,8 @@ interface CodexViewProps {
   timelineEvents?: TimelineEvent[];
 }
 
-type CodexTab = 'profile' | 'web' | 'manuscript' | 'timeline' | 'notes';
+export type CodexRibbonTab = 'dossier' | 'graph' | 'local-graph';
+type CodexElementTab = 'profile' | 'web' | 'graph' | 'manuscript' | 'timeline' | 'notes';
 
 export const CodexView: React.FC<CodexViewProps> = ({
   loreList,
@@ -52,11 +58,14 @@ export const CodexView: React.FC<CodexViewProps> = ({
   scenes = [],
   timelineEvents = [],
 }) => {
+  // Bottom Ribbon Mode ('dossier' = 2-pane dossiers, 'graph' = Obsidian global graph, 'local-graph' = Local subgraph)
+  const [ribbonTab, setRibbonTab] = useState<CodexRibbonTab>('dossier');
+
   const [selectedId, setSelectedId] = useState<string>(initialSelectedId || loreList[0]?.id || '');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<CodexTab>('profile');
+  const [elementTab, setElementTab] = useState<CodexElementTab>('profile');
 
   // Relationship creation state
   const [newRelTarget, setNewRelTarget] = useState('');
@@ -101,6 +110,11 @@ export const CodexView: React.FC<CodexViewProps> = ({
       }
     }
     return counts;
+  }, [loreList]);
+
+  // Total connections across all lore entries
+  const totalRelationshipsCount = useMemo(() => {
+    return loreList.reduce((acc, curr) => acc + (curr.relationships?.length || 0), 0);
   }, [loreList]);
 
   // Filtered sidebar items
@@ -166,7 +180,7 @@ export const CodexView: React.FC<CodexViewProps> = ({
     });
   }, [activeEntry, loreList]);
 
-  // 2. Computed Backlinks (Inverted Index: Other entities that link to this one)
+  // 2. Computed Backlinks (Inverted Index)
   const backlinks = useMemo(() => {
     if (!activeEntry) return [];
     const targetNames = [
@@ -196,7 +210,7 @@ export const CodexView: React.FC<CodexViewProps> = ({
     return results;
   }, [activeEntry, loreList]);
 
-  // 3. Manuscript Scene Mentions (Zero Hallucination - Grounded in Real Text)
+  // 3. Manuscript Scene Mentions
   const manuscriptAppearances = useMemo(() => {
     if (!activeEntry || scenes.length === 0) return [];
     const searchTerms = [
@@ -226,7 +240,6 @@ export const CodexView: React.FC<CodexViewProps> = ({
         const isMentioned = isPov || isSetting || matchIndex !== -1;
         if (!isMentioned) return null;
 
-        // Extract context snippet around the match
         let snippet = '';
         if (matchIndex !== -1) {
           const start = Math.max(0, matchIndex - 60);
@@ -257,9 +270,7 @@ export const CodexView: React.FC<CodexViewProps> = ({
     ];
 
     return timelineEvents.filter((ev) => {
-      // Check character participants
       if (ev.characters && ev.characters.some((c) => names.includes(c.toLowerCase()))) return true;
-      // Check title and summary
       const text = `${ev.title} ${ev.summary} ${ev.lane}`.toLowerCase();
       return names.some((n) => text.includes(n));
     });
@@ -286,6 +297,18 @@ export const CodexView: React.FC<CodexViewProps> = ({
     onUpdateLore({
       ...activeEntry,
       relationships: updatedRels,
+    });
+  };
+
+  // Add relationship from inside the Obsidian Node Graph directly
+  const handleAddRelationshipFromGraph = (sourceId: string, targetName: string, type: string) => {
+    const source = loreList.find((l) => l.id === sourceId);
+    if (!source || !targetName.trim() || !type.trim()) return;
+
+    const existingRels = source.relationships || [];
+    onUpdateLore({
+      ...source,
+      relationships: [...existingRels, { to: targetName.trim(), type: type.trim() }],
     });
   };
 
@@ -331,1301 +354,1477 @@ export const CodexView: React.FC<CodexViewProps> = ({
       height: '100%',
       backgroundColor: 'var(--bg-app)',
       display: 'flex',
+      flexDirection: 'column',
       overflow: 'hidden',
     }}>
       {/* ------------------------------------------------------------- */}
-      {/* Left Sidebar: Filtered List of Elements */}
+      {/* Main Content Area: Driven by Bottom Ribbon Selection */}
       {/* ------------------------------------------------------------- */}
-      <aside style={{
-        width: '330px',
-        height: '100%',
-        backgroundColor: 'var(--bg-sidebar)',
-        borderRight: '1px solid var(--border-subtle)',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-      }}>
-        {/* Header with Search and New Button */}
-        <div style={{ padding: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '12px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Layers size={16} color="var(--accent-primary)" />
-              <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                Codex & World Bible
-              </h2>
-            </div>
-            <button
-              onClick={() => setIsNewModalOpen(true)}
-              title="Add character, location, item, lore, or faction"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '5px 10px',
-                borderRadius: '6px',
-                backgroundColor: 'var(--accent-primary)',
-                color: '#fff',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                border: 'none',
-                boxShadow: '0 2px 5px rgba(235, 94, 40, 0.25)',
-              }}
-            >
-              <Plus size={13} strokeWidth={2.5} />
-              <span>New</span>
-            </button>
-          </div>
-
-          {/* Search box */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '6px 10px',
-            backgroundColor: 'var(--bg-surface)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: '6px',
-            marginBottom: '10px',
-          }}>
-            <Search size={13} color="var(--text-muted)" />
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search characters, lore, items..."
-              style={{
-                border: 'none',
-                outline: 'none',
-                background: 'transparent',
-                fontSize: '12px',
-                width: '100%',
-                color: 'var(--text-primary)',
-              }}
-            />
-          </div>
-
-          {/* Category Filter Pills */}
-          <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }}>
-            <button
-              onClick={() => setSelectedCategoryFilter('all')}
-              style={{
-                padding: '3px 8px',
-                borderRadius: '12px',
-                fontSize: '11px',
-                fontWeight: selectedCategoryFilter === 'all' ? 600 : 400,
-                backgroundColor: selectedCategoryFilter === 'all' ? 'var(--bg-active)' : 'transparent',
-                color: selectedCategoryFilter === 'all' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                border: 'none',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              All ({categoryCounts.all})
-            </button>
-
-            {(['character', 'location', 'lore', 'item', 'faction'] as LoreCategory[]).map((catId) => {
-              const cfg = CODEX_CATEGORIES[catId];
-              const isSelected = selectedCategoryFilter === catId;
-              const count = categoryCounts[catId] || 0;
-
-              return (
-                <button
-                  key={catId}
-                  onClick={() => setSelectedCategoryFilter(catId)}
-                  title={cfg.name}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '3px 8px',
-                    borderRadius: '12px',
-                    fontSize: '11px',
-                    fontWeight: isSelected ? 600 : 400,
-                    backgroundColor: isSelected ? cfg.bgLight : 'transparent',
-                    color: isSelected ? cfg.color : 'var(--text-secondary)',
-                    border: isSelected ? `1px solid ${cfg.borderLight}` : '1px solid transparent',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {getCategoryIcon(catId, 11)}
-                  <span>{cfg.shortName}</span>
-                  <span style={{ opacity: 0.7, fontSize: '10px' }}>({count})</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Item List */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
-          {filteredLore.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)', fontSize: '12px' }}>
-              No entries found. Click "+ New" to add your first {selectedCategoryFilter === 'all' ? 'element' : selectedCategoryFilter}.
-            </div>
-          ) : (
-            filteredLore.map((item) => {
-              const isSelected = item.id === selectedId;
-              const itemConfig = CODEX_CATEGORIES[item.category] || CODEX_CATEGORIES.character;
-
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => setSelectedId(item.id)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    backgroundColor: isSelected ? 'var(--bg-active)' : 'transparent',
-                    borderLeft: isSelected ? `3px solid ${itemConfig.color}` : '3px solid transparent',
-                    marginBottom: '2px',
-                    transition: 'all 0.1s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    const del = e.currentTarget.querySelector('.lore-trash-btn') as HTMLElement;
-                    if (del) del.style.opacity = '1';
-                  }}
-                  onMouseLeave={(e) => {
-                    const del = e.currentTarget.querySelector('.lore-trash-btn') as HTMLElement;
-                    if (del) del.style.opacity = '0';
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-                    <div style={{
-                      width: '28px',
-                      height: '28px',
-                      borderRadius: '6px',
-                      backgroundColor: itemConfig.bgLight,
-                      border: `1px solid ${itemConfig.borderLight}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
-                      {getCategoryIcon(item.category, 14)}
-                    </div>
-
-                    <div style={{ overflow: 'hidden' }}>
-                      <div style={{
-                        fontSize: '13px',
-                        fontWeight: isSelected ? 600 : 500,
-                        color: 'var(--text-primary)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}>
-                        {item.name}
-                      </div>
-                      <div style={{
-                        fontSize: '11px',
-                        color: isSelected ? itemConfig.color : 'var(--text-muted)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                      }}>
-                        <span>{item.role || itemConfig.name}</span>
-                        {item.relationships && item.relationships.length > 0 && (
-                          <span style={{ fontSize: '10px', opacity: 0.8 }}>
-                            • {item.relationships.length} links
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    className="lore-trash-btn"
-                    onClick={(e) => handleDeleteEntry(e, item)}
-                    title={`Delete ${item.name}`}
-                    style={{
-                      padding: '4px',
-                      borderRadius: '4px',
-                      color: '#dc2626',
-                      opacity: 0,
-                      transition: 'opacity 0.15s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      background: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </aside>
-
-      {/* ------------------------------------------------------------- */}
-      {/* Right Detail Pane: Category-Specific Attributes & Canon Web */}
-      {/* ------------------------------------------------------------- */}
-      <main style={{
-        flex: 1,
-        height: '100%',
-        overflowY: 'auto',
-        padding: '28px 44px',
-        backgroundColor: 'var(--bg-app)',
-      }}>
-        {activeEntry ? (
-          <div style={{ maxWidth: '820px', margin: '0 auto' }}>
-            
-            {/* Top Identity Card */}
-            <div style={{
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+        
+        {ribbonTab === 'graph' ? (
+          /* FULLSCREEN OBSIDIAN GLOBAL GRAPH */
+          <ObsidianNodeGraph
+            loreList={loreList}
+            scenes={scenes}
+            selectedId={selectedId}
+            onSelectNode={(id, cat) => {
+              if (cat !== 'scene') setSelectedId(id);
+            }}
+            onOpenDossier={(id) => {
+              setSelectedId(id);
+              setRibbonTab('dossier');
+            }}
+            onOpenScene={onOpenScene}
+            onAddRelationship={handleAddRelationshipFromGraph}
+            isLocalMode={false}
+          />
+        ) : ribbonTab === 'local-graph' ? (
+          /* FOCUSED LOCAL SUBGRAPH */
+          <ObsidianNodeGraph
+            loreList={loreList}
+            scenes={scenes}
+            selectedId={selectedId}
+            onSelectNode={(id, cat) => {
+              if (cat !== 'scene') setSelectedId(id);
+            }}
+            onOpenDossier={(id) => {
+              setSelectedId(id);
+              setRibbonTab('dossier');
+            }}
+            onOpenScene={onOpenScene}
+            onAddRelationship={handleAddRelationshipFromGraph}
+            isLocalMode={true}
+          />
+        ) : (
+          /* STANDARD 2-PANE DOSSIER VIEW */
+          <>
+            {/* Left Sidebar: Filtered List of Elements */}
+            <aside style={{
+              width: '330px',
+              height: '100%',
+              backgroundColor: 'var(--bg-sidebar)',
+              borderRight: '1px solid var(--border-subtle)',
               display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              marginBottom: '20px',
-              paddingBottom: '18px',
-              borderBottom: '1px solid var(--border-subtle)',
+              flexDirection: 'column',
+              flexShrink: 0,
             }}>
-              <div style={{ flex: 1, marginRight: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                  <input
-                    value={activeEntry.name}
-                    onChange={(e) => {
-                      const newName = e.target.value;
-                      const newSlug = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                      onUpdateLore({
-                        ...activeEntry,
-                        name: newName,
-                        slug: newSlug || activeEntry.slug,
-                      });
-                    }}
-                    placeholder="Entry Name..."
+              {/* Header with Search and New Button */}
+              <div style={{ padding: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '12px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Layers size={16} color="var(--accent-primary)" />
+                    <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                      Codex & World Bible
+                    </h2>
+                  </div>
+                  <button
+                    onClick={() => setIsNewModalOpen(true)}
+                    title="Add character, location, item, lore, or faction"
                     style={{
-                      fontFamily: 'var(--font-serif)',
-                      fontSize: '24px',
-                      fontWeight: 700,
-                      color: 'var(--text-primary)',
-                      border: '1px solid transparent',
-                      borderRadius: '6px',
-                      padding: '4px 8px',
-                      backgroundColor: 'transparent',
-                      width: '100%',
-                      outline: 'none',
-                    }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = activeConfig.color;
-                      e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = 'transparent';
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  />
-
-                  {/* Category Badge & Converter */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                    <div style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '5px',
-                      padding: '4px 10px',
-                      borderRadius: '12px',
-                      backgroundColor: activeConfig.bgLight,
-                      border: `1px solid ${activeConfig.borderLight}`,
-                      color: activeConfig.color,
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                    }}>
-                      {getCategoryIcon(activeEntry.category, 13)}
-                      <span>{activeConfig.name}</span>
-                    </div>
-
-                    <select
-                      value={activeEntry.category}
-                      onChange={(e) => onUpdateLore({ ...activeEntry, category: e.target.value as LoreCategory })}
-                      title="Switch category"
-                      style={{
-                        fontSize: '11px',
-                        padding: '3px 6px',
-                        borderRadius: '6px',
-                        backgroundColor: 'var(--bg-surface)',
-                        color: 'var(--text-secondary)',
-                        border: '1px solid var(--border-subtle)',
-                        outline: 'none',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <option value="character">Character</option>
-                      <option value="location">Location</option>
-                      <option value="lore">Lore & World</option>
-                      <option value="item">Item & Artifact</option>
-                      <option value="faction">Faction & Order</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Subtitle / Role & Wiki Tag */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
-                  <input
-                    value={activeEntry.role || ''}
-                    onChange={(e) => onUpdateLore({ ...activeEntry, role: e.target.value })}
-                    placeholder={`Role / Subtitle (e.g. ${
-                      activeEntry.category === 'character' ? 'Crown Princess' :
-                      activeEntry.category === 'location' ? 'Ancient Capital' :
-                      activeEntry.category === 'lore' ? 'Arcane Axiom' :
-                      activeEntry.category === 'item' ? 'Legendary Blade' :
-                      'Knightly Order'
-                    })...`}
-                    style={{
-                      fontSize: '13px',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      border: '1px solid var(--border-subtle)',
-                      backgroundColor: 'var(--bg-surface)',
-                      color: 'var(--text-primary)',
-                      outline: 'none',
-                      width: '260px',
-                    }}
-                  />
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                    <span>Wiki tag:</span>
-                    <code style={{
-                      fontFamily: 'var(--font-mono)',
-                      color: activeConfig.color,
-                      backgroundColor: activeConfig.bgLight,
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                    }}>
-                      [[{activeEntry.slug}|{activeEntry.name}]]
-                    </code>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={(e) => handleDeleteEntry(e, activeEntry)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  color: '#dc2626',
-                  border: '1px solid #fecaca',
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  backgroundColor: 'transparent',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-              >
-                <Trash2 size={13} />
-                <span>Delete</span>
-              </button>
-            </div>
-
-            {/* Anti-Hallucination Canon Status Pill Bar */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '10px 16px',
-              backgroundColor: 'var(--bg-surface)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '8px',
-              marginBottom: '20px',
-              fontSize: '12px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <CheckCircle2 size={15} color="#10b981" />
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Continuity Grounded:</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
-                  <Link2 size={13} color={activeConfig.color} />
-                  <span>{directRelationships.length + backlinks.length} Lore Connections</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
-                  <BookOpen size={13} color="#3b82f6" />
-                  <span>{manuscriptAppearances.length} Manuscript Scenes</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
-                  <Calendar size={13} color="#8b5cf6" />
-                  <span>{matchingTimelineEvents.length} Timeline Events</span>
-                </div>
-              </div>
-
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                {activeConfig.tagline}
-              </span>
-            </div>
-
-            {/* Interactive View Navigation Tabs */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              borderBottom: '1px solid var(--border-subtle)',
-              marginBottom: '22px',
-            }}>
-              <button
-                onClick={() => setActiveTab('profile')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 14px',
-                  border: 'none',
-                  borderBottom: activeTab === 'profile' ? `2px solid ${activeConfig.color}` : '2px solid transparent',
-                  backgroundColor: 'transparent',
-                  color: activeTab === 'profile' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  fontWeight: activeTab === 'profile' ? 600 : 400,
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                }}
-              >
-                <Layers size={14} color={activeTab === 'profile' ? activeConfig.color : 'var(--text-muted)'} />
-                <span>Dedicated Attributes</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('web')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 14px',
-                  border: 'none',
-                  borderBottom: activeTab === 'web' ? `2px solid ${activeConfig.color}` : '2px solid transparent',
-                  backgroundColor: 'transparent',
-                  color: activeTab === 'web' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  fontWeight: activeTab === 'web' ? 600 : 400,
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                }}
-              >
-                <Link2 size={14} color={activeTab === 'web' ? activeConfig.color : 'var(--text-muted)'} />
-                <span>Connected Lore Web ({directRelationships.length + backlinks.length})</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('manuscript')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 14px',
-                  border: 'none',
-                  borderBottom: activeTab === 'manuscript' ? `2px solid ${activeConfig.color}` : '2px solid transparent',
-                  backgroundColor: 'transparent',
-                  color: activeTab === 'manuscript' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  fontWeight: activeTab === 'manuscript' ? 600 : 400,
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                }}
-              >
-                <BookOpen size={14} color={activeTab === 'manuscript' ? '#3b82f6' : 'var(--text-muted)'} />
-                <span>Manuscript Appearances ({manuscriptAppearances.length})</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('timeline')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 14px',
-                  border: 'none',
-                  borderBottom: activeTab === 'timeline' ? `2px solid ${activeConfig.color}` : '2px solid transparent',
-                  backgroundColor: 'transparent',
-                  color: activeTab === 'timeline' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  fontWeight: activeTab === 'timeline' ? 600 : 400,
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                }}
-              >
-                <Calendar size={14} color={activeTab === 'timeline' ? '#8b5cf6' : 'var(--text-muted)'} />
-                <span>Timeline ({matchingTimelineEvents.length})</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('notes')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '8px 14px',
-                  border: 'none',
-                  borderBottom: activeTab === 'notes' ? `2px solid ${activeConfig.color}` : '2px solid transparent',
-                  backgroundColor: 'transparent',
-                  color: activeTab === 'notes' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  fontWeight: activeTab === 'notes' ? 600 : 400,
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                }}
-              >
-                <FileText size={14} color={activeTab === 'notes' ? activeConfig.color : 'var(--text-muted)'} />
-                <span>Dossier & Notes</span>
-              </button>
-            </div>
-
-            {/* TAB 1: DEDICATED CATEGORY ATTRIBUTES */}
-            {activeTab === 'profile' && (
-              <div>
-                {/* Short Summary Field */}
-                <div style={{ marginBottom: '22px' }}>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    color: 'var(--text-muted)',
-                    marginBottom: '6px',
-                  }}>
-                    Core Summary & Hook
-                  </label>
-                  <textarea
-                    value={activeEntry.summary || ''}
-                    onChange={(e) => onUpdateLore({ ...activeEntry, summary: e.target.value })}
-                    rows={2}
-                    placeholder={`One or two sentences defining ${activeEntry.name} in the story...`}
-                    style={{
-                      width: '100%',
-                      fontSize: '13px',
-                      lineHeight: '1.5',
-                      padding: '10px 12px',
-                      backgroundColor: 'var(--bg-surface)',
-                      border: '1px solid var(--border-subtle)',
+                      padding: '5px 10px',
                       borderRadius: '6px',
-                      outline: 'none',
-                      color: 'var(--text-primary)',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
-
-                {/* Aliases & Alternate Names */}
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    color: 'var(--text-muted)',
-                    marginBottom: '6px',
-                  }}>
-                    Aliases, Titles & Honorifics
-                  </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                    {(activeEntry.aliases || []).map((alias) => (
-                      <span
-                        key={alias}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '3px 9px',
-                          borderRadius: '12px',
-                          backgroundColor: 'var(--bg-active)',
-                          color: 'var(--text-secondary)',
-                          fontSize: '12px',
-                          border: '1px solid var(--border-subtle)',
-                        }}
-                      >
-                        <span>{alias}</span>
-                        <button
-                          onClick={() => handleRemoveAlias(alias)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--text-muted)',
-                            cursor: 'pointer',
-                            padding: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                          }}
-                        >
-                          &times;
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      value={newAlias}
-                      onChange={(e) => setNewAlias(e.target.value)}
-                      onKeyDown={handleAddAlias}
-                      placeholder="+ Add alias (press Enter)..."
-                      style={{
-                        fontSize: '12px',
-                        padding: '4px 10px',
-                        borderRadius: '12px',
-                        border: '1px dashed var(--border-subtle)',
-                        backgroundColor: 'transparent',
-                        color: 'var(--text-primary)',
-                        outline: 'none',
-                        width: '180px',
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Category-Specific Grid of Fields */}
-                <div style={{
-                  backgroundColor: 'var(--bg-card)',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border-subtle)',
-                  padding: '20px',
-                  marginBottom: '24px',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                    {getCategoryIcon(activeEntry.category, 18)}
-                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                      {activeConfig.name} Attributes
-                    </h3>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      ({activeConfig.tagline})
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-                    {activeConfig.fields.map((field) => {
-                      const value = (activeEntry.attributes && activeEntry.attributes[field.key]) || '';
-
-                      return (
-                        <div key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                              {field.label}
-                            </label>
-                            {field.helpText && (
-                              <span title={field.helpText} style={{ cursor: 'help', color: 'var(--text-muted)' }}>
-                                <Info size={12} />
-                              </span>
-                            )}
-                          </div>
-
-                          {field.type === 'select' ? (
-                            <select
-                              value={value}
-                              onChange={(e) => handleUpdateAttribute(field.key, e.target.value)}
-                              style={{
-                                padding: '8px 10px',
-                                borderRadius: '6px',
-                                border: '1px solid var(--border-subtle)',
-                                backgroundColor: 'var(--bg-surface)',
-                                color: 'var(--text-primary)',
-                                fontSize: '13px',
-                                outline: 'none',
-                              }}
-                            >
-                              <option value="">-- Choose {field.label} --</option>
-                              {field.options?.map((opt) => (
-                                <option key={opt} value={opt}>{opt}</option>
-                              ))}
-                            </select>
-                          ) : field.type === 'textarea' ? (
-                            <textarea
-                              value={value}
-                              onChange={(e) => handleUpdateAttribute(field.key, e.target.value)}
-                              placeholder={field.placeholder}
-                              rows={3}
-                              style={{
-                                padding: '8px 10px',
-                                borderRadius: '6px',
-                                border: '1px solid var(--border-subtle)',
-                                backgroundColor: 'var(--bg-surface)',
-                                color: 'var(--text-primary)',
-                                fontSize: '13px',
-                                outline: 'none',
-                                resize: 'vertical',
-                              }}
-                            />
-                          ) : (
-                            <input
-                              value={value}
-                              onChange={(e) => handleUpdateAttribute(field.key, e.target.value)}
-                              placeholder={field.placeholder}
-                              style={{
-                                padding: '8px 10px',
-                                borderRadius: '6px',
-                                border: '1px solid var(--border-subtle)',
-                                backgroundColor: 'var(--bg-surface)',
-                                color: 'var(--text-primary)',
-                                fontSize: '13px',
-                                outline: 'none',
-                              }}
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Quick Switch to Full Notes */}
-                <div style={{ textAlign: 'right' }}>
-                  <button
-                    onClick={() => setActiveTab('notes')}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
+                      backgroundColor: 'var(--accent-primary)',
+                      color: '#fff',
                       fontSize: '12px',
-                      color: activeConfig.color,
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
                       fontWeight: 600,
+                      cursor: 'pointer',
+                      border: 'none',
+                      boxShadow: '0 2px 5px rgba(235, 94, 40, 0.25)',
                     }}
                   >
-                    <span>Edit Detailed Dossier & Backstory Notes</span>
-                    <ArrowRight size={13} />
+                    <Plus size={13} strokeWidth={2.5} />
+                    <span>New</span>
                   </button>
                 </div>
-              </div>
-            )}
 
-            {/* TAB 2: CONNECTED STORY WEB (INTERCONNECTED CROSS-LINKING) */}
-            {activeTab === 'web' && (
-              <div>
+                {/* Search box */}
                 <div style={{
-                  padding: '12px 16px',
-                  backgroundColor: 'var(--bg-card)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-subtle)',
-                  marginBottom: '20px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '10px',
+                  gap: '8px',
+                  padding: '6px 10px',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '6px',
+                  marginBottom: '10px',
                 }}>
-                  <Link2 size={16} color={activeConfig.color} />
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    <strong>Interconnected Canon Web:</strong> Every connection you establish between characters, locations, factions, and items is tracked bidirectionally so neither the writer nor the system ever hallucinates facts.
-                  </div>
+                  <Search size={13} color="var(--text-muted)" />
+                  <input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search characters, lore, items..."
+                    style={{
+                      border: 'none',
+                      outline: 'none',
+                      background: 'transparent',
+                      fontSize: '12px',
+                      width: '100%',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
                 </div>
 
-                {/* Section A: Direct Outgoing Links */}
-                <div style={{ marginBottom: '24px' }}>
-                  <h4 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: '10px' }}>
-                    Direct Connections ({directRelationships.length})
-                  </h4>
+                {/* Category Filter Pills */}
+                <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }}>
+                  <button
+                    onClick={() => setSelectedCategoryFilter('all')}
+                    style={{
+                      padding: '3px 8px',
+                      borderRadius: '12px',
+                      fontSize: '11px',
+                      fontWeight: selectedCategoryFilter === 'all' ? 600 : 400,
+                      backgroundColor: selectedCategoryFilter === 'all' ? 'var(--bg-active)' : 'transparent',
+                      color: selectedCategoryFilter === 'all' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    All ({categoryCounts.all})
+                  </button>
 
-                  {directRelationships.length === 0 ? (
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '12px', backgroundColor: 'var(--bg-surface)', borderRadius: '6px' }}>
-                      No direct connections added yet. Use the form below to link this {activeConfig.name} to another character, faction, location, or artifact.
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {directRelationships.map((rel) => {
-                        const targetConfig = rel.targetEntity 
-                          ? CODEX_CATEGORIES[rel.targetEntity.category]
-                          : null;
+                  {(['character', 'location', 'lore', 'item', 'faction'] as LoreCategory[]).map((catId) => {
+                    const cfg = CODEX_CATEGORIES[catId];
+                    const isSelected = selectedCategoryFilter === catId;
+                    const count = categoryCounts[catId] || 0;
 
-                        return (
-                          <div
-                            key={rel.originalIndex}
-                            style={{
+                    return (
+                      <button
+                        key={catId}
+                        onClick={() => setSelectedCategoryFilter(catId)}
+                        title={cfg.name}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: isSelected ? 600 : 400,
+                          backgroundColor: isSelected ? cfg.bgLight : 'transparent',
+                          color: isSelected ? cfg.color : 'var(--text-secondary)',
+                          border: isSelected ? `1px solid ${cfg.borderLight}` : '1px solid transparent',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {getCategoryIcon(catId, 11)}
+                        <span>{cfg.shortName}</span>
+                        <span style={{ opacity: 0.7, fontSize: '10px' }}>({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Item List */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
+                {filteredLore.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                    No entries found. Click "+ New" to add your first {selectedCategoryFilter === 'all' ? 'element' : selectedCategoryFilter}.
+                  </div>
+                ) : (
+                  filteredLore.map((item) => {
+                    const isSelected = item.id === selectedId;
+                    const itemConfig = CODEX_CATEGORIES[item.category] || CODEX_CATEGORIES.character;
+
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => setSelectedId(item.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 10px',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          backgroundColor: isSelected ? 'var(--bg-active)' : 'transparent',
+                          borderLeft: isSelected ? `3px solid ${itemConfig.color}` : '3px solid transparent',
+                          marginBottom: '2px',
+                          transition: 'all 0.1s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          const del = e.currentTarget.querySelector('.lore-trash-btn') as HTMLElement;
+                          if (del) del.style.opacity = '1';
+                        }}
+                        onMouseLeave={(e) => {
+                          const del = e.currentTarget.querySelector('.lore-trash-btn') as HTMLElement;
+                          if (del) del.style.opacity = '0';
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                          <div style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '6px',
+                            backgroundColor: itemConfig.bgLight,
+                            border: `1px solid ${itemConfig.borderLight}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}>
+                            {getCategoryIcon(item.category, 14)}
+                          </div>
+
+                          <div style={{ overflow: 'hidden' }}>
+                            <div style={{
+                              fontSize: '13px',
+                              fontWeight: isSelected ? 600 : 500,
+                              color: 'var(--text-primary)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}>
+                              {item.name}
+                            </div>
+                            <div style={{
+                              fontSize: '11px',
+                              color: isSelected ? itemConfig.color : 'var(--text-muted)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'space-between',
-                              padding: '10px 14px',
-                              backgroundColor: 'var(--bg-surface)',
-                              borderRadius: '6px',
-                              border: '1px solid var(--border-subtle)',
-                              fontSize: '13px',
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <span style={{
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                padding: '2px 8px',
-                                borderRadius: '12px',
-                                backgroundColor: activeConfig.bgLight,
-                                color: activeConfig.color,
-                                border: `1px solid ${activeConfig.borderLight}`,
-                              }}>
-                                {rel.type}
-                              </span>
-
-                              <ArrowRight size={13} color="var(--text-muted)" />
-
-                              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                                {rel.to}
-                              </span>
-
-                              {rel.targetEntity && targetConfig && (
-                                <span style={{
-                                  fontSize: '10px',
-                                  padding: '1px 6px',
-                                  borderRadius: '4px',
-                                  backgroundColor: targetConfig.bgLight,
-                                  color: targetConfig.color,
-                                  textTransform: 'uppercase',
-                                  fontWeight: 700,
-                                }}>
-                                  {targetConfig.shortName}
+                              gap: '6px',
+                            }}>
+                              <span>{item.role || itemConfig.name}</span>
+                              {item.relationships && item.relationships.length > 0 && (
+                                <span style={{ fontSize: '10px', opacity: 0.8 }}>
+                                  • {item.relationships.length} links
                                 </span>
                               )}
                             </div>
+                          </div>
+                        </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              {rel.targetEntity && (
-                                <button
-                                  onClick={() => setSelectedId(rel.targetEntity!.id)}
-                                  title={`Jump to ${rel.targetEntity.name} in Codex`}
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '4px 8px',
-                                    borderRadius: '4px',
-                                    backgroundColor: 'var(--bg-active)',
-                                    color: 'var(--accent-primary)',
-                                    fontSize: '11px',
-                                    fontWeight: 500,
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  <span>View</span>
-                                  <ExternalLink size={11} />
-                                </button>
-                              )}
+                        <button
+                          className="lore-trash-btn"
+                          onClick={(e) => handleDeleteEntry(e, item)}
+                          title={`Delete ${item.name}`}
+                          style={{
+                            padding: '4px',
+                            borderRadius: '4px',
+                            color: '#dc2626',
+                            opacity: 0,
+                            transition: 'opacity 0.15s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </aside>
 
+            {/* Right Detail Pane */}
+            <main style={{
+              flex: 1,
+              height: '100%',
+              overflowY: 'auto',
+              padding: '28px 44px',
+              backgroundColor: 'var(--bg-app)',
+            }}>
+              {activeEntry ? (
+                <div style={{ maxWidth: '840px', margin: '0 auto' }}>
+                  
+                  {/* Top Identity Card */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    marginBottom: '20px',
+                    paddingBottom: '18px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                  }}>
+                    <div style={{ flex: 1, marginRight: '20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                        <input
+                          value={activeEntry.name}
+                          onChange={(e) => {
+                            const newName = e.target.value;
+                            const newSlug = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                            onUpdateLore({
+                              ...activeEntry,
+                              name: newName,
+                              slug: newSlug || activeEntry.slug,
+                            });
+                          }}
+                          placeholder="Entry Name..."
+                          style={{
+                            fontFamily: 'var(--font-serif)',
+                            fontSize: '24px',
+                            fontWeight: 700,
+                            color: 'var(--text-primary)',
+                            border: '1px solid transparent',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            backgroundColor: 'transparent',
+                            width: '100%',
+                            outline: 'none',
+                          }}
+                          onFocus={(e) => {
+                            e.currentTarget.style.borderColor = activeConfig.color;
+                            e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
+                          }}
+                          onBlur={(e) => {
+                            e.currentTarget.style.borderColor = 'transparent';
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        />
+
+                        {/* Category Badge & Converter */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            backgroundColor: activeConfig.bgLight,
+                            border: `1px solid ${activeConfig.borderLight}`,
+                            color: activeConfig.color,
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                          }}>
+                            {getCategoryIcon(activeEntry.category, 13)}
+                            <span>{activeConfig.name}</span>
+                          </div>
+
+                          <select
+                            value={activeEntry.category}
+                            onChange={(e) => onUpdateLore({ ...activeEntry, category: e.target.value as LoreCategory })}
+                            title="Switch category"
+                            style={{
+                              fontSize: '11px',
+                              padding: '3px 6px',
+                              borderRadius: '6px',
+                              backgroundColor: 'var(--bg-surface)',
+                              color: 'var(--text-secondary)',
+                              border: '1px solid var(--border-subtle)',
+                              outline: 'none',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <option value="character">Character</option>
+                            <option value="location">Location</option>
+                            <option value="lore">Lore & World</option>
+                            <option value="item">Item & Artifact</option>
+                            <option value="faction">Faction & Order</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Subtitle / Role & Wiki Tag */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                        <input
+                          value={activeEntry.role || ''}
+                          onChange={(e) => onUpdateLore({ ...activeEntry, role: e.target.value })}
+                          placeholder={`Role / Subtitle (e.g. ${
+                            activeEntry.category === 'character' ? 'Crown Princess' :
+                            activeEntry.category === 'location' ? 'Ancient Capital' :
+                            activeEntry.category === 'lore' ? 'Arcane Axiom' :
+                            activeEntry.category === 'item' ? 'Legendary Blade' :
+                            'Knightly Order'
+                          })...`}
+                          style={{
+                            fontSize: '13px',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid var(--border-subtle)',
+                            backgroundColor: 'var(--bg-surface)',
+                            color: 'var(--text-primary)',
+                            outline: 'none',
+                            width: '260px',
+                          }}
+                        />
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                          <span>Wiki tag:</span>
+                          <code style={{
+                            fontFamily: 'var(--font-mono)',
+                            color: activeConfig.color,
+                            backgroundColor: activeConfig.bgLight,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                          }}>
+                            [[{activeEntry.slug}|{activeEntry.name}]]
+                          </code>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        onClick={() => setRibbonTab('local-graph')}
+                        title="Inspect in Obsidian Local Subgraph"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          border: `1px solid ${activeConfig.borderLight}`,
+                          backgroundColor: activeConfig.bgLight,
+                          color: activeConfig.color,
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Network size={13} />
+                        <span>View Graph</span>
+                      </button>
+
+                      <button
+                        onClick={(e) => handleDeleteEntry(e, activeEntry)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          color: '#dc2626',
+                          border: '1px solid #fecaca',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          backgroundColor: 'transparent',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      >
+                        <Trash2 size={13} />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Anti-Hallucination Canon Status Pill Bar */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 16px',
+                    backgroundColor: 'var(--bg-surface)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    marginBottom: '20px',
+                    fontSize: '12px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <CheckCircle2 size={15} color="#10b981" />
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Continuity Grounded:</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
+                        <Link2 size={13} color={activeConfig.color} />
+                        <span>{directRelationships.length + backlinks.length} Lore Connections</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
+                        <BookOpen size={13} color="#3b82f6" />
+                        <span>{manuscriptAppearances.length} Manuscript Scenes</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
+                        <Calendar size={13} color="#8b5cf6" />
+                        <span>{matchingTimelineEvents.length} Timeline Events</span>
+                      </div>
+                    </div>
+
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      {activeConfig.tagline}
+                    </span>
+                  </div>
+
+                  {/* Interactive Sub-Navigation Tabs */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    marginBottom: '22px',
+                  }}>
+                    <button
+                      onClick={() => setElementTab('profile')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 14px',
+                        border: 'none',
+                        borderBottom: elementTab === 'profile' ? `2px solid ${activeConfig.color}` : '2px solid transparent',
+                        backgroundColor: 'transparent',
+                        color: elementTab === 'profile' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        fontWeight: elementTab === 'profile' ? 600 : 400,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Layers size={14} color={elementTab === 'profile' ? activeConfig.color : 'var(--text-muted)'} />
+                      <span>Dedicated Attributes</span>
+                    </button>
+
+                    <button
+                      onClick={() => setElementTab('web')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 14px',
+                        border: 'none',
+                        borderBottom: elementTab === 'web' ? `2px solid ${activeConfig.color}` : '2px solid transparent',
+                        backgroundColor: 'transparent',
+                        color: elementTab === 'web' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        fontWeight: elementTab === 'web' ? 600 : 400,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Link2 size={14} color={elementTab === 'web' ? activeConfig.color : 'var(--text-muted)'} />
+                      <span>Connected Lore Web ({directRelationships.length + backlinks.length})</span>
+                    </button>
+
+                    <button
+                      onClick={() => setElementTab('graph')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 14px',
+                        border: 'none',
+                        borderBottom: elementTab === 'graph' ? `2px solid ${activeConfig.color}` : '2px solid transparent',
+                        backgroundColor: 'transparent',
+                        color: elementTab === 'graph' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        fontWeight: elementTab === 'graph' ? 600 : 400,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Network size={14} color={elementTab === 'graph' ? activeConfig.color : 'var(--text-muted)'} />
+                      <span>Interactive Node Graph</span>
+                    </button>
+
+                    <button
+                      onClick={() => setElementTab('manuscript')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 14px',
+                        border: 'none',
+                        borderBottom: elementTab === 'manuscript' ? `2px solid ${activeConfig.color}` : '2px solid transparent',
+                        backgroundColor: 'transparent',
+                        color: elementTab === 'manuscript' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        fontWeight: elementTab === 'manuscript' ? 600 : 400,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <BookOpen size={14} color={elementTab === 'manuscript' ? '#3b82f6' : 'var(--text-muted)'} />
+                      <span>Manuscript Appearances ({manuscriptAppearances.length})</span>
+                    </button>
+
+                    <button
+                      onClick={() => setElementTab('timeline')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 14px',
+                        border: 'none',
+                        borderBottom: elementTab === 'timeline' ? `2px solid ${activeConfig.color}` : '2px solid transparent',
+                        backgroundColor: 'transparent',
+                        color: elementTab === 'timeline' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        fontWeight: elementTab === 'timeline' ? 600 : 400,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Calendar size={14} color={elementTab === 'timeline' ? '#8b5cf6' : 'var(--text-muted)'} />
+                      <span>Timeline ({matchingTimelineEvents.length})</span>
+                    </button>
+
+                    <button
+                      onClick={() => setElementTab('notes')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 14px',
+                        border: 'none',
+                        borderBottom: elementTab === 'notes' ? `2px solid ${activeConfig.color}` : '2px solid transparent',
+                        backgroundColor: 'transparent',
+                        color: elementTab === 'notes' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        fontWeight: elementTab === 'notes' ? 600 : 400,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <FileText size={14} color={elementTab === 'notes' ? activeConfig.color : 'var(--text-muted)'} />
+                      <span>Dossier & Notes</span>
+                    </button>
+                  </div>
+
+                  {/* SUB-TAB 1: DEDICATED ATTRIBUTES */}
+                  {elementTab === 'profile' && (
+                    <div>
+                      {/* Short Summary */}
+                      <div style={{ marginBottom: '22px' }}>
+                        <label style={{
+                          display: 'block',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          color: 'var(--text-muted)',
+                          marginBottom: '6px',
+                        }}>
+                          Core Summary & Hook
+                        </label>
+                        <textarea
+                          value={activeEntry.summary || ''}
+                          onChange={(e) => onUpdateLore({ ...activeEntry, summary: e.target.value })}
+                          rows={2}
+                          placeholder={`One or two sentences defining ${activeEntry.name} in the story...`}
+                          style={{
+                            width: '100%',
+                            fontSize: '13px',
+                            lineHeight: '1.5',
+                            padding: '10px 12px',
+                            backgroundColor: 'var(--bg-surface)',
+                            border: '1px solid var(--border-subtle)',
+                            borderRadius: '6px',
+                            outline: 'none',
+                            color: 'var(--text-primary)',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      </div>
+
+                      {/* Aliases & Alternate Names */}
+                      <div style={{ marginBottom: '24px' }}>
+                        <label style={{
+                          display: 'block',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          color: 'var(--text-muted)',
+                          marginBottom: '6px',
+                        }}>
+                          Aliases, Titles & Honorifics
+                        </label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                          {(activeEntry.aliases || []).map((alias) => (
+                            <span
+                              key={alias}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '3px 9px',
+                                borderRadius: '12px',
+                                backgroundColor: 'var(--bg-active)',
+                                color: 'var(--text-secondary)',
+                                fontSize: '12px',
+                                border: '1px solid var(--border-subtle)',
+                              }}
+                            >
+                              <span>{alias}</span>
                               <button
-                                onClick={() => handleRemoveRelationship(rel.originalIndex)}
-                                title="Remove connection"
+                                onClick={() => handleRemoveAlias(alias)}
                                 style={{
                                   background: 'none',
                                   border: 'none',
                                   color: 'var(--text-muted)',
                                   cursor: 'pointer',
-                                  padding: '4px',
+                                  padding: 0,
                                   display: 'flex',
                                   alignItems: 'center',
                                 }}
-                                onMouseEnter={(e) => (e.currentTarget.style.color = '#dc2626')}
-                                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
                               >
-                                <Trash2 size={13} />
+                                &times;
                               </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Section B: Inbound Backlinks (Inverted Index) */}
-                <div style={{ marginBottom: '28px' }}>
-                  <h4 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: '10px' }}>
-                    Inbound Connections ({backlinks.length})
-                  </h4>
-
-                  {backlinks.length === 0 ? (
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '12px', backgroundColor: 'var(--bg-surface)', borderRadius: '6px' }}>
-                      No other codex elements point directly to {activeEntry.name} yet.
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {backlinks.map((link, idx) => {
-                        const sourceConfig = CODEX_CATEGORIES[link.sourceEntity.category];
-
-                        return (
-                          <div
-                            key={idx}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              padding: '10px 14px',
-                              backgroundColor: 'var(--bg-surface)',
-                              borderRadius: '6px',
-                              border: '1px solid var(--border-subtle)',
-                              fontSize: '13px',
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                                {link.sourceEntity.name}
-                              </span>
-
-                              <span style={{
-                                fontSize: '10px',
-                                padding: '1px 6px',
-                                borderRadius: '4px',
-                                backgroundColor: sourceConfig.bgLight,
-                                color: sourceConfig.color,
-                                textTransform: 'uppercase',
-                                fontWeight: 700,
-                              }}>
-                                {sourceConfig.shortName}
-                              </span>
-
-                              <span style={{
-                                fontSize: '11px',
-                                padding: '2px 8px',
-                                borderRadius: '12px',
-                                backgroundColor: 'var(--bg-active)',
-                                color: 'var(--text-secondary)',
-                              }}>
-                                connects as: "{link.type}"
-                              </span>
-                            </div>
-
-                            <button
-                              onClick={() => setSelectedId(link.sourceEntity.id)}
-                              title={`Jump to ${link.sourceEntity.name} in Codex`}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                padding: '4px 8px',
-                                borderRadius: '4px',
-                                backgroundColor: 'var(--bg-active)',
-                                color: 'var(--accent-primary)',
-                                fontSize: '11px',
-                                fontWeight: 500,
-                                border: 'none',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <span>Inspect Source</span>
-                              <ExternalLink size={11} />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Form to Add New Relationship */}
-                <div style={{
-                  padding: '16px',
-                  backgroundColor: 'var(--bg-card)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-subtle)',
-                }}>
-                  <h4 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: '12px' }}>
-                    + Link to Another Story Element
-                  </h4>
-
-                  <form onSubmit={handleAddRelationship} style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div style={{ flex: '1 1 200px' }}>
-                      <input
-                        list="codex-elements-datalist"
-                        value={newRelTarget}
-                        onChange={(e) => setNewRelTarget(e.target.value)}
-                        placeholder="Select or type target element..."
-                        style={{
-                          width: '100%',
-                          fontSize: '12px',
-                          padding: '7px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border-subtle)',
-                          backgroundColor: 'var(--bg-surface)',
-                          color: 'var(--text-primary)',
-                          outline: 'none',
-                          boxSizing: 'border-box',
-                        }}
-                      />
-                      <datalist id="codex-elements-datalist">
-                        {loreList
-                          .filter((l) => l.id !== activeEntry.id)
-                          .map((l) => (
-                            <option key={l.id} value={l.name}>
-                              {l.name} ({CODEX_CATEGORIES[l.category].name})
-                            </option>
+                            </span>
                           ))}
-                      </datalist>
+                          <input
+                            value={newAlias}
+                            onChange={(e) => setNewAlias(e.target.value)}
+                            onKeyDown={handleAddAlias}
+                            placeholder="+ Add alias (press Enter)..."
+                            style={{
+                              fontSize: '12px',
+                              padding: '4px 10px',
+                              borderRadius: '12px',
+                              border: '1px dashed var(--border-subtle)',
+                              backgroundColor: 'transparent',
+                              color: 'var(--text-primary)',
+                              outline: 'none',
+                              width: '180px',
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Category-Specific Grid of Fields */}
+                      <div style={{
+                        backgroundColor: 'var(--bg-card)',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-subtle)',
+                        padding: '20px',
+                        marginBottom: '24px',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                          {getCategoryIcon(activeEntry.category, 18)}
+                          <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                            {activeConfig.name} Attributes
+                          </h3>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            ({activeConfig.tagline})
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+                          {activeConfig.fields.map((field) => {
+                            const value = (activeEntry.attributes && activeEntry.attributes[field.key]) || '';
+
+                            return (
+                              <div key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                                    {field.label}
+                                  </label>
+                                  {field.helpText && (
+                                    <span title={field.helpText} style={{ cursor: 'help', color: 'var(--text-muted)' }}>
+                                      <Info size={12} />
+                                    </span>
+                                  )}
+                                </div>
+
+                                {field.type === 'select' ? (
+                                  <select
+                                    value={value}
+                                    onChange={(e) => handleUpdateAttribute(field.key, e.target.value)}
+                                    style={{
+                                      padding: '8px 10px',
+                                      borderRadius: '6px',
+                                      border: '1px solid var(--border-subtle)',
+                                      backgroundColor: 'var(--bg-surface)',
+                                      color: 'var(--text-primary)',
+                                      fontSize: '13px',
+                                      outline: 'none',
+                                    }}
+                                  >
+                                    <option value="">-- Choose {field.label} --</option>
+                                    {field.options?.map((opt) => (
+                                      <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                  </select>
+                                ) : field.type === 'textarea' ? (
+                                  <textarea
+                                    value={value}
+                                    onChange={(e) => handleUpdateAttribute(field.key, e.target.value)}
+                                    placeholder={field.placeholder}
+                                    rows={3}
+                                    style={{
+                                      padding: '8px 10px',
+                                      borderRadius: '6px',
+                                      border: '1px solid var(--border-subtle)',
+                                      backgroundColor: 'var(--bg-surface)',
+                                      color: 'var(--text-primary)',
+                                      fontSize: '13px',
+                                      outline: 'none',
+                                      resize: 'vertical',
+                                    }}
+                                  />
+                                ) : (
+                                  <input
+                                    value={value}
+                                    onChange={(e) => handleUpdateAttribute(field.key, e.target.value)}
+                                    placeholder={field.placeholder}
+                                    style={{
+                                      padding: '8px 10px',
+                                      borderRadius: '6px',
+                                      border: '1px solid var(--border-subtle)',
+                                      backgroundColor: 'var(--bg-surface)',
+                                      color: 'var(--text-primary)',
+                                      fontSize: '13px',
+                                      outline: 'none',
+                                    }}
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
+                  )}
 
-                    <div style={{ flex: '1 1 180px' }}>
-                      <input
-                        list="codex-presets-datalist"
-                        value={newRelType}
-                        onChange={(e) => setNewRelType(e.target.value)}
-                        placeholder="Relationship (e.g. Wields, Ruler of)..."
-                        style={{
-                          width: '100%',
-                          fontSize: '12px',
-                          padding: '7px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border-subtle)',
-                          backgroundColor: 'var(--bg-surface)',
-                          color: 'var(--text-primary)',
-                          outline: 'none',
-                          boxSizing: 'border-box',
-                        }}
-                      />
-                      <datalist id="codex-presets-datalist">
-                        {activeConfig.relationshipPresets.map((preset) => (
-                          <option key={preset} value={preset} />
-                        ))}
-                      </datalist>
-                    </div>
+                  {/* SUB-TAB 2: CONNECTED LORE WEB */}
+                  {elementTab === 'web' && (
+                    <div>
+                      {/* Section A: Direct Outgoing Links */}
+                      <div style={{ marginBottom: '24px' }}>
+                        <h4 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: '10px' }}>
+                          Direct Connections ({directRelationships.length})
+                        </h4>
 
-                    <button
-                      type="submit"
-                      disabled={!newRelTarget.trim() || !newRelType.trim()}
-                      style={{
-                        padding: '7px 16px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        backgroundColor: activeConfig.color,
-                        color: '#fff',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: (!newRelTarget.trim() || !newRelType.trim()) ? 'not-allowed' : 'pointer',
-                        opacity: (!newRelTarget.trim() || !newRelType.trim()) ? 0.6 : 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      <Plus size={13} strokeWidth={2.5} />
-                      <span>Establish Canon Link</span>
-                    </button>
-                  </form>
-                </div>
-              </div>
-            )}
+                        {directRelationships.length === 0 ? (
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '12px', backgroundColor: 'var(--bg-surface)', borderRadius: '6px' }}>
+                            No direct connections added yet. Use the form below to link this {activeConfig.name} to another character, faction, location, or artifact.
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {directRelationships.map((rel) => {
+                              const targetConfig = rel.targetEntity 
+                                ? CODEX_CATEGORIES[rel.targetEntity.category]
+                                : null;
 
-            {/* TAB 3: MANUSCRIPT OCCURRENCES (GROUNDED REALITY) */}
-            {activeTab === 'manuscript' && (
-              <div>
-                <div style={{
-                  padding: '12px 16px',
-                  backgroundColor: 'var(--bg-card)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-subtle)',
-                  marginBottom: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                }}>
-                  <BookOpen size={16} color="#3b82f6" />
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    <strong>Manuscript Presence:</strong> Every time this {activeConfig.name} is mentioned or active in a scene, it is automatically tracked below with a 1-click jump into the Writer Studio editor.
-                  </div>
-                </div>
+                              return (
+                                <div
+                                  key={rel.originalIndex}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '10px 14px',
+                                    backgroundColor: 'var(--bg-surface)',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border-subtle)',
+                                    fontSize: '13px',
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <span style={{
+                                      fontSize: '11px',
+                                      fontWeight: 600,
+                                      padding: '2px 8px',
+                                      borderRadius: '12px',
+                                      backgroundColor: activeConfig.bgLight,
+                                      color: activeConfig.color,
+                                      border: `1px solid ${activeConfig.borderLight}`,
+                                    }}>
+                                      {rel.type}
+                                    </span>
 
-                {manuscriptAppearances.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 20px', backgroundColor: 'var(--bg-surface)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                    <AlertCircle size={28} color="var(--text-muted)" style={{ marginBottom: '8px' }} />
-                    <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                      Not Yet Mentioned in Manuscript
-                    </h4>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '400px', margin: '0 auto' }}>
-                      Type <code>@{activeEntry.name}</code> or <code>[[{activeEntry.slug}|{activeEntry.name}]]</code> in any scene editor to weave this element into your novel!
-                    </p>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {manuscriptAppearances.map(({ scene, isPov, isSetting, snippet }) => (
-                      <div
-                        key={scene.id}
-                        style={{
-                          padding: '14px 16px',
-                          backgroundColor: 'var(--bg-surface)',
-                          borderRadius: '8px',
-                          border: '1px solid var(--border-subtle)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '8px',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                              {scene.title}
-                            </span>
-                            {isPov && (
-                              <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '4px', backgroundColor: '#dbeafe', color: '#1d4ed8' }}>
-                                POV Scene
-                              </span>
-                            )}
-                            {isSetting && (
-                              <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d' }}>
-                                Location Setting
-                              </span>
-                            )}
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                              • {scene.wordCount} words
-                            </span>
+                                    <ArrowRight size={13} color="var(--text-muted)" />
+
+                                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                                      {rel.to}
+                                    </span>
+
+                                    {rel.targetEntity && targetConfig && (
+                                      <span style={{
+                                        fontSize: '10px',
+                                        padding: '1px 6px',
+                                        borderRadius: '4px',
+                                        backgroundColor: targetConfig.bgLight,
+                                        color: targetConfig.color,
+                                        textTransform: 'uppercase',
+                                        fontWeight: 700,
+                                      }}>
+                                        {targetConfig.shortName}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {rel.targetEntity && (
+                                      <button
+                                        onClick={() => setSelectedId(rel.targetEntity!.id)}
+                                        title={`Jump to ${rel.targetEntity.name} in Codex`}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          padding: '4px 8px',
+                                          borderRadius: '4px',
+                                          backgroundColor: 'var(--bg-active)',
+                                          color: 'var(--accent-primary)',
+                                          fontSize: '11px',
+                                          fontWeight: 500,
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                        }}
+                                      >
+                                        <span>View</span>
+                                        <ExternalLink size={11} />
+                                      </button>
+                                    )}
+
+                                    <button
+                                      onClick={() => handleRemoveRelationship(rel.originalIndex)}
+                                      title="Remove connection"
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--text-muted)',
+                                        cursor: 'pointer',
+                                        padding: '4px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                      }}
+                                      onMouseEnter={(e) => (e.currentTarget.style.color = '#dc2626')}
+                                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Section B: Inbound Backlinks */}
+                      <div style={{ marginBottom: '28px' }}>
+                        <h4 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: '10px' }}>
+                          Inbound Connections ({backlinks.length})
+                        </h4>
+
+                        {backlinks.length === 0 ? (
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '12px', backgroundColor: 'var(--bg-surface)', borderRadius: '6px' }}>
+                            No other codex elements point directly to {activeEntry.name} yet.
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {backlinks.map((link, idx) => {
+                              const sourceConfig = CODEX_CATEGORIES[link.sourceEntity.category];
+
+                              return (
+                                <div
+                                  key={idx}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '10px 14px',
+                                    backgroundColor: 'var(--bg-surface)',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border-subtle)',
+                                    fontSize: '13px',
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                                      {link.sourceEntity.name}
+                                    </span>
+
+                                    <span style={{
+                                      fontSize: '10px',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      backgroundColor: sourceConfig.bgLight,
+                                      color: sourceConfig.color,
+                                      textTransform: 'uppercase',
+                                      fontWeight: 700,
+                                    }}>
+                                      {sourceConfig.shortName}
+                                    </span>
+
+                                    <span style={{
+                                      fontSize: '11px',
+                                      padding: '2px 8px',
+                                      borderRadius: '12px',
+                                      backgroundColor: 'var(--bg-active)',
+                                      color: 'var(--text-secondary)',
+                                    }}>
+                                      connects as: "{link.type}"
+                                    </span>
+                                  </div>
+
+                                  <button
+                                    onClick={() => setSelectedId(link.sourceEntity.id)}
+                                    title={`Jump to ${link.sourceEntity.name} in Codex`}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      padding: '4px 8px',
+                                      borderRadius: '4px',
+                                      backgroundColor: 'var(--bg-active)',
+                                      color: 'var(--accent-primary)',
+                                      fontSize: '11px',
+                                      fontWeight: 500,
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    <span>Inspect Source</span>
+                                    <ExternalLink size={11} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Add Relationship Form */}
+                      <div style={{
+                        padding: '16px',
+                        backgroundColor: 'var(--bg-card)',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-subtle)',
+                      }}>
+                        <h4 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: '12px' }}>
+                          + Link to Another Story Element
+                        </h4>
+
+                        <form onSubmit={handleAddRelationship} style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <div style={{ flex: '1 1 200px' }}>
+                            <input
+                              list="codex-elements-datalist"
+                              value={newRelTarget}
+                              onChange={(e) => setNewRelTarget(e.target.value)}
+                              placeholder="Select or type target element..."
+                              style={{
+                                width: '100%',
+                                fontSize: '12px',
+                                padding: '7px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-subtle)',
+                                backgroundColor: 'var(--bg-surface)',
+                                color: 'var(--text-primary)',
+                                outline: 'none',
+                                boxSizing: 'border-box',
+                              }}
+                            />
+                            <datalist id="codex-elements-datalist">
+                              {loreList
+                                .filter((l) => l.id !== activeEntry.id)
+                                .map((l) => (
+                                  <option key={l.id} value={l.name}>
+                                    {l.name} ({CODEX_CATEGORIES[l.category].name})
+                                  </option>
+                                ))}
+                            </datalist>
+                          </div>
+
+                          <div style={{ flex: '1 1 180px' }}>
+                            <input
+                              list="codex-presets-datalist"
+                              value={newRelType}
+                              onChange={(e) => setNewRelType(e.target.value)}
+                              placeholder="Relationship (e.g. Wields, Ruler of)..."
+                              style={{
+                                width: '100%',
+                                fontSize: '12px',
+                                padding: '7px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-subtle)',
+                                backgroundColor: 'var(--bg-surface)',
+                                color: 'var(--text-primary)',
+                                outline: 'none',
+                                boxSizing: 'border-box',
+                              }}
+                            />
+                            <datalist id="codex-presets-datalist">
+                              {activeConfig.relationshipPresets.map((preset) => (
+                                <option key={preset} value={preset} />
+                              ))}
+                            </datalist>
                           </div>
 
                           <button
-                            onClick={() => onOpenScene(scene.id)}
+                            type="submit"
+                            disabled={!newRelTarget.trim() || !newRelType.trim()}
                             style={{
+                              padding: '7px 16px',
+                              borderRadius: '6px',
+                              border: 'none',
+                              backgroundColor: activeConfig.color,
+                              color: '#fff',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              cursor: (!newRelTarget.trim() || !newRelType.trim()) ? 'not-allowed' : 'pointer',
+                              opacity: (!newRelTarget.trim() || !newRelType.trim()) ? 0.6 : 1,
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '5px',
-                              padding: '5px 10px',
-                              borderRadius: '6px',
-                              backgroundColor: 'var(--accent-primary)',
-                              color: '#fff',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              border: 'none',
-                              cursor: 'pointer',
+                              gap: '6px',
                             }}
                           >
-                            <span>Open Scene in Editor</span>
-                            <ArrowRight size={12} />
+                            <Plus size={13} strokeWidth={2.5} />
+                            <span>Establish Canon Link</span>
                           </button>
-                        </div>
-
-                        {snippet && (
-                          <div style={{
-                            fontSize: '12px',
-                            color: 'var(--text-secondary)',
-                            backgroundColor: 'var(--bg-app)',
-                            padding: '8px 12px',
-                            borderRadius: '6px',
-                            fontFamily: 'var(--font-serif)',
-                            lineHeight: 1.5,
-                          }}>
-                            {snippet}
-                          </div>
-                        )}
+                        </form>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                    </div>
+                  )}
 
-            {/* TAB 4: TIMELINE EVENTS */}
-            {activeTab === 'timeline' && (
-              <div>
-                <div style={{
-                  padding: '12px 16px',
-                  backgroundColor: 'var(--bg-card)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-subtle)',
-                  marginBottom: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                }}>
-                  <Calendar size={16} color="#8b5cf6" />
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    <strong>Canonical Timeline Anchors:</strong> Chronological events from your novel's story timeline involving {activeEntry.name}.
-                  </div>
-                </div>
-
-                {matchingTimelineEvents.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 20px', backgroundColor: 'var(--bg-surface)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                    <Calendar size={28} color="var(--text-muted)" style={{ marginBottom: '8px' }} />
-                    <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                      No Timeline Events Linked
-                    </h4>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '400px', margin: '0 auto' }}>
-                      Add this character or element as a participant in your Timeline view to lock in chronological story milestones!
-                    </p>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {matchingTimelineEvents.map((ev) => (
-                      <div
-                        key={ev.id}
-                        style={{
-                          padding: '14px 16px',
-                          backgroundColor: 'var(--bg-surface)',
-                          borderRadius: '8px',
-                          border: '1px solid var(--border-subtle)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '6px',
+                  {/* SUB-TAB 3: EMBEDDED LOCAL NODE GRAPH */}
+                  {elementTab === 'graph' && (
+                    <div style={{
+                      height: '520px',
+                      borderRadius: '10px',
+                      overflow: 'hidden',
+                      border: '1px solid var(--border-subtle)',
+                      boxShadow: 'var(--shadow-md)',
+                      position: 'relative',
+                    }}>
+                      <ObsidianNodeGraph
+                        loreList={loreList}
+                        scenes={scenes}
+                        selectedId={activeEntry.id}
+                        onSelectNode={(id, cat) => {
+                          if (cat !== 'scene') setSelectedId(id);
                         }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                            {ev.title}
-                          </span>
-                          <span style={{ fontSize: '11px', color: 'var(--accent-primary)', fontWeight: 600 }}>
-                            {ev.date || 'Undated'}
-                          </span>
-                        </div>
+                        onOpenDossier={(id) => {
+                          setSelectedId(id);
+                          setElementTab('profile');
+                        }}
+                        onOpenScene={onOpenScene}
+                        onAddRelationship={handleAddRelationshipFromGraph}
+                        isLocalMode={true}
+                      />
+                    </div>
+                  )}
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                          <span>Story Lane: {ev.lane || 'Main'}</span>
-                          {ev.characters && ev.characters.length > 0 && (
-                            <>
-                              <span>•</span>
-                              <span>Cast: {ev.characters.join(', ')}</span>
-                            </>
-                          )}
-                        </div>
-
-                        {ev.summary && (
-                          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0', lineHeight: 1.4 }}>
-                            {ev.summary}
+                  {/* SUB-TAB 4: MANUSCRIPT OCCURRENCES */}
+                  {elementTab === 'manuscript' && (
+                    <div>
+                      {manuscriptAppearances.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px 20px', backgroundColor: 'var(--bg-surface)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                          <AlertCircle size={28} color="var(--text-muted)" style={{ marginBottom: '8px' }} />
+                          <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                            Not Yet Mentioned in Manuscript
+                          </h4>
+                          <p style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '400px', margin: '0 auto' }}>
+                            Type <code>@{activeEntry.name}</code> or <code>[[{activeEntry.slug}|{activeEntry.name}]]</code> in any scene editor to ground this element!
                           </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {manuscriptAppearances.map(({ scene, isPov, isSetting, snippet }) => (
+                            <div
+                              key={scene.id}
+                              style={{
+                                padding: '14px 16px',
+                                backgroundColor: 'var(--bg-surface)',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border-subtle)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                    {scene.title}
+                                  </span>
+                                  {isPov && (
+                                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '4px', backgroundColor: '#dbeafe', color: '#1d4ed8' }}>
+                                      POV Scene
+                                    </span>
+                                  )}
+                                  {isSetting && (
+                                    <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '4px', backgroundColor: '#dcfce7', color: '#15803d' }}>
+                                      Location Setting
+                                    </span>
+                                  )}
+                                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                    • {scene.wordCount} words
+                                  </span>
+                                </div>
 
-            {/* TAB 5: DOSSIER & FULL NOTES */}
-            {activeTab === 'notes' && (
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  color: 'var(--text-muted)',
-                  marginBottom: '8px',
-                }}>
-                  Detailed Dossier, Backstory & Lore Notes
-                </label>
-                <textarea
-                  value={activeEntry.content || ''}
-                  onChange={(e) => onUpdateLore({ ...activeEntry, content: e.target.value })}
-                  rows={18}
-                  placeholder="Full background, secret history, personality notes, and rules..."
-                  style={{
-                    width: '100%',
-                    fontFamily: 'var(--font-serif)',
-                    fontSize: '15px',
-                    lineHeight: '1.7',
-                    padding: '16px',
-                    backgroundColor: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: '8px',
-                    outline: 'none',
-                    color: 'var(--text-primary)',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-            )}
+                                <button
+                                  onClick={() => onOpenScene(scene.id)}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    padding: '5px 10px',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'var(--accent-primary)',
+                                    color: '#fff',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  <span>Open Scene in Editor</span>
+                                  <ArrowRight size={12} />
+                                </button>
+                              </div>
 
-          </div>
-        ) : (
-          <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-            Select an element from the list or click "+ New" to begin building your story bible.
-          </div>
+                              {snippet && (
+                                <div style={{
+                                  fontSize: '12px',
+                                  color: 'var(--text-secondary)',
+                                  backgroundColor: 'var(--bg-app)',
+                                  padding: '8px 12px',
+                                  borderRadius: '6px',
+                                  fontFamily: 'var(--font-serif)',
+                                  lineHeight: 1.5,
+                                }}>
+                                  {snippet}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SUB-TAB 5: TIMELINE */}
+                  {elementTab === 'timeline' && (
+                    <div>
+                      {matchingTimelineEvents.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px 20px', backgroundColor: 'var(--bg-surface)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                          <Calendar size={28} color="var(--text-muted)" style={{ marginBottom: '8px' }} />
+                          <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                            No Timeline Events Linked
+                          </h4>
+                          <p style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '400px', margin: '0 auto' }}>
+                            Add this character or element as a participant in your Timeline view to lock in chronological story milestones!
+                          </p>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {matchingTimelineEvents.map((ev) => (
+                            <div
+                              key={ev.id}
+                              style={{
+                                padding: '14px 16px',
+                                backgroundColor: 'var(--bg-surface)',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border-subtle)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                  {ev.title}
+                                </span>
+                                <span style={{ fontSize: '11px', color: 'var(--accent-primary)', fontWeight: 600 }}>
+                                  {ev.date || 'Undated'}
+                                </span>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                                <span>Story Lane: {ev.lane || 'Main'}</span>
+                                {ev.characters && ev.characters.length > 0 && (
+                                  <>
+                                    <span>•</span>
+                                    <span>Cast: {ev.characters.join(', ')}</span>
+                                  </>
+                                )}
+                              </div>
+
+                              {ev.summary && (
+                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0', lineHeight: 1.4 }}>
+                                  {ev.summary}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SUB-TAB 6: DOSSIER & NOTES */}
+                  {elementTab === 'notes' && (
+                    <div>
+                      <label style={{
+                        display: 'block',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        color: 'var(--text-muted)',
+                        marginBottom: '8px',
+                      }}>
+                        Detailed Dossier, Backstory & Lore Notes
+                      </label>
+                      <textarea
+                        value={activeEntry.content || ''}
+                        onChange={(e) => onUpdateLore({ ...activeEntry, content: e.target.value })}
+                        rows={18}
+                        placeholder="Full background, secret history, personality notes, and rules..."
+                        style={{
+                          width: '100%',
+                          fontFamily: 'var(--font-serif)',
+                          fontSize: '15px',
+                          lineHeight: '1.7',
+                          padding: '16px',
+                          backgroundColor: 'var(--bg-surface)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: '8px',
+                          outline: 'none',
+                          color: 'var(--text-primary)',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                  )}
+
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                  Select an element from the list or click "+ New" to begin building your story bible.
+                </div>
+              )}
+            </main>
+          </>
         )}
-      </main>
+      </div>
+
+      {/* ------------------------------------------------------------- */}
+      {/* Bottom Ribbon Bar: Dedicated Graph & Dossier Switcher */}
+      {/* ------------------------------------------------------------- */}
+      <nav style={{
+        height: '38px',
+        backgroundColor: 'var(--bg-app)',
+        borderTop: '1px solid var(--border-subtle)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 16px',
+        flexShrink: 0,
+        zIndex: 20,
+        userSelect: 'none',
+      }}>
+        {/* Left: Ribbon Mode Tabs */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <button
+            onClick={() => setRibbonTab('dossier')}
+            title="Inspect and edit element dossiers & attributes"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 12px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: ribbonTab === 'dossier' ? 600 : 400,
+              backgroundColor: ribbonTab === 'dossier' ? 'var(--bg-surface)' : 'transparent',
+              color: ribbonTab === 'dossier' ? 'var(--text-primary)' : 'var(--text-muted)',
+              border: ribbonTab === 'dossier' ? '1px solid var(--border-subtle)' : '1px solid transparent',
+              boxShadow: ribbonTab === 'dossier' ? 'var(--shadow-sm)' : 'none',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Layers size={13} color={ribbonTab === 'dossier' ? 'var(--accent-primary)' : 'currentColor'} />
+            <span>Element Dossiers</span>
+          </button>
+
+          <button
+            onClick={() => setRibbonTab('graph')}
+            title="Open Obsidian-style interactive Force-Directed Global Node Graph"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 12px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: ribbonTab === 'graph' ? 600 : 400,
+              backgroundColor: ribbonTab === 'graph' ? 'var(--bg-surface)' : 'transparent',
+              color: ribbonTab === 'graph' ? 'var(--text-primary)' : 'var(--text-muted)',
+              border: ribbonTab === 'graph' ? '1px solid var(--border-subtle)' : '1px solid transparent',
+              boxShadow: ribbonTab === 'graph' ? 'var(--shadow-sm)' : 'none',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Network size={13} color={ribbonTab === 'graph' ? '#eb5e28' : 'currentColor'} />
+            <span>Obsidian Node Graph</span>
+          </button>
+
+          <button
+            onClick={() => setRibbonTab('local-graph')}
+            title={`Open focused local graph for ${activeEntry?.name || 'current element'}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 12px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: ribbonTab === 'local-graph' ? 600 : 400,
+              backgroundColor: ribbonTab === 'local-graph' ? 'var(--bg-surface)' : 'transparent',
+              color: ribbonTab === 'local-graph' ? 'var(--text-primary)' : 'var(--text-muted)',
+              border: ribbonTab === 'local-graph' ? '1px solid var(--border-subtle)' : '1px solid transparent',
+              boxShadow: ribbonTab === 'local-graph' ? 'var(--shadow-sm)' : 'none',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Compass size={13} color={ribbonTab === 'local-graph' ? '#10b981' : 'currentColor'} />
+            <span>Local Subgraph ({activeEntry ? activeEntry.name : 'Selected'})</span>
+          </button>
+        </div>
+
+        {/* Center: Live Connectivity & Continuity Indicator */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
+          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+            {loreList.length} Story Elements
+          </span>
+          <span>•</span>
+          <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>
+            {totalRelationshipsCount} Canon Connections
+          </span>
+          <span>•</span>
+          <span>Obsidian Visualizer Active</span>
+        </div>
+
+        {/* Right: Quick actions & category stats */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span title="Characters" style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: CODEX_CATEGORIES.character.color }} />
+            <span title="Locations" style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: CODEX_CATEGORIES.location.color }} />
+            <span title="Lore" style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: CODEX_CATEGORIES.lore.color }} />
+            <span title="Items" style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: CODEX_CATEGORIES.item.color }} />
+            <span title="Factions" style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: CODEX_CATEGORIES.faction.color }} />
+          </div>
+
+          <button
+            onClick={() => setIsNewModalOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '3px 8px',
+              borderRadius: '4px',
+              backgroundColor: 'var(--accent-primary)',
+              color: '#fff',
+              fontSize: '11px',
+              fontWeight: 600,
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <Plus size={11} strokeWidth={2.5} />
+            <span>Add Element</span>
+          </button>
+        </div>
+      </nav>
 
       {/* New Codex Entry Popup Modal */}
       <NewCodexModal

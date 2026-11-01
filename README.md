@@ -65,6 +65,13 @@ InkWell differentiates 5 dedicated story element categories to ensure the author
 | **Item & Artifact** | Cyan (`Package`) | **Items and artifacts in the world**: Classification (Relic, Weapon, Tome), Rarity Tier, Current Bearer/Location, Creator/Forging Lore, Abilities, Requirements/Curse. |
 | **Faction & Order** | Violet (`Shield`) | **Faction and order setup**: Organization Type, Core Creed & Motto, Leadership Hierarchy, Headquarters, Heraldry Sigil, Military/Economic Reach, Allies & Enemies. |
 
+* **Obsidian-Style Interactive Node Graph View**:
+  - Full-screen force-directed 2D physics simulation of your entire story universe.
+  - Dynamically scaled node radiuses reflecting connection degree with category-themed color palettes.
+  - Seamless pan, zoom (mouse wheel or camera buttons), and drag-and-drop node physics.
+  - Luminous halo focus with automatic neighbor highlighting (dims unrelated nodes for laser-focused cluster inspection).
+  - Floating glassmorphic Node Inspector HUD with quick connections and 1-click **"Open Dossier"** and **"+ Link"** tools.
+  - Dedicated **Bottom Ribbon Navigation** inside the Codex (`[ 📋 Element Dossiers | 🕸️ Obsidian Node Graph | 🎯 Local Subgraph ]`).
 * **Bidirectional Cross-Linking**: Automatically tracks outgoing links and computes incoming backlinks (inverted index) with 1-click navigation between related entities.
 * **Manuscript Reality Scanner**: Scans all scenes in real time for mentions of names, aliases, or POV/setting anchors, showing match context snippets and a direct **"Open Scene in Editor"** button.
 * **Canonical Timeline Anchors**: Links events from your story timeline to entities, locking in chronological continuity.
