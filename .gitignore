@@ -1,0 +1,19 @@
+# Node dependencies & bundles
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Tauri & Rust build artifacts
+src-tauri/target/
+
+# Inkwell runtime cache
+.inkwell/
+*.sqlite
+*.sqlite-journal
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.log
