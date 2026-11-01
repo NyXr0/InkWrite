@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LoreEntry, LoreCategory } from '../../types/project';
+import { NewCodexModal } from './NewCodexModal';
 import { 
   User, 
   MapPin, 
@@ -14,7 +15,7 @@ interface CodexViewProps {
   loreList: LoreEntry[];
   initialSelectedId?: string;
   onUpdateLore: (updated: LoreEntry) => void;
-  onAddLore: (category: LoreCategory) => void;
+  onAddLore: (category: LoreCategory, name?: string, content?: string) => string | void;
   onDeleteLore: (loreId: string) => void;
   onOpenScene: (sceneId: string) => void;
 }
@@ -30,8 +31,19 @@ export const CodexView: React.FC<CodexViewProps> = ({
   const [selectedId, setSelectedId] = useState<string>(initialSelectedId || loreList[0]?.id || '');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
   const activeEntry = loreList.find((item) => item.id === selectedId) || loreList[0];
+
+  const handleCreateEntry = (category: LoreCategory, entryName: string, starterContent: string) => {
+    const newId = onAddLore(category, entryName, starterContent);
+    if (typeof newId === 'string') {
+      setSelectedId(newId);
+    }
+    if (selectedCategory !== 'all' && selectedCategory !== category) {
+      setSelectedCategory('all');
+    }
+  };
 
   const filteredLore = loreList.filter((item) => {
     if (selectedCategory !== 'all' && item.category !== selectedCategory) return false;
@@ -97,8 +109,8 @@ export const CodexView: React.FC<CodexViewProps> = ({
               Codex & Story Bible
             </h2>
             <button
-              onClick={() => onAddLore('character')}
-              title="Add character or lore"
+              onClick={() => setIsNewModalOpen(true)}
+              title="Add character, location, or lore entry"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -109,6 +121,7 @@ export const CodexView: React.FC<CodexViewProps> = ({
                 color: '#fff',
                 fontSize: '11px',
                 fontWeight: 500,
+                cursor: 'pointer',
               }}
             >
               <Plus size={12} />
@@ -437,6 +450,13 @@ export const CodexView: React.FC<CodexViewProps> = ({
           </div>
         )}
       </main>
+
+      {/* New Codex Entry Type Popup Modal */}
+      <NewCodexModal
+        isOpen={isNewModalOpen}
+        onClose={() => setIsNewModalOpen(false)}
+        onCreate={handleCreateEntry}
+      />
     </div>
   );
 };

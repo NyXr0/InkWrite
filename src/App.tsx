@@ -565,21 +565,24 @@ export const App: React.FC = () => {
   };
 
   // Add lore
-  const handleAddLore = (category: LoreCategory) => {
+  const handleAddLore = (category: LoreCategory, name?: string, content?: string): string => {
+    const defaultName = name?.trim() || `New ${category.charAt(0).toUpperCase() + category.slice(1)}`;
+    const newId = `lore-${Date.now()}`;
     const newLore: LoreEntry = {
-      id: `lore-${Date.now()}`,
-      slug: `new-${category}-${Date.now().toString().slice(-4)}`,
-      name: `New ${category.charAt(0).toUpperCase() + category.slice(1)}`,
+      id: newId,
+      slug: defaultName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `new-${category}`,
+      name: defaultName,
       category,
       summary: '',
-      content: `### New ${category}\n\nAdd details and notes here.`,
+      content: content || `### ${defaultName}\n\nAdd details and notes here.`,
     };
 
     updateActiveProject((prev) => ({
       ...prev,
       lore: [newLore, ...prev.lore],
     }));
-    setSelectedCodexId(newLore.id);
+    setSelectedCodexId(newId);
+    return newId;
   };
 
   // Update lore
