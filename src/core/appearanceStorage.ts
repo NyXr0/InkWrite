@@ -1,11 +1,12 @@
 import { AppearanceSettings, defaultAppearanceSettings } from '../types/appearance';
 
-const APPEARANCE_KEY = 'inkwell_appearance_settings_v1';
+const APPEARANCE_KEY = 'inxwrite_appearance_settings_v1';
+const LEGACY_APPEARANCE_KEY = 'inkwell_appearance_settings_v1';
 
 export class AppearanceStorage {
   static load(): AppearanceSettings {
     try {
-      const saved = localStorage.getItem(APPEARANCE_KEY);
+      const saved = localStorage.getItem(APPEARANCE_KEY) || localStorage.getItem(LEGACY_APPEARANCE_KEY);
       if (saved) {
         return {
           ...defaultAppearanceSettings,

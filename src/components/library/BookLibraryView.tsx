@@ -1657,7 +1657,7 @@ export const BookLibraryView: React.FC<BookLibraryViewProps> = ({
               eBook Library & Reader
             </h1>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              Import pre-existing books to read directly in InkWell: EPUB, PDF, and Plain Text
+              Import pre-existing books to read directly in InxWrite: EPUB, PDF, and Plain Text
             </p>
           </div>
         </div>

@@ -2,7 +2,8 @@ import { LibraryBook, BookFormat } from '../types/book';
 import { parseEpubFile } from './epubParser';
 import { parseTextBook } from './textBookParser';
 
-const DB_NAME = 'inkwell_books_library_db';
+const DB_NAME = 'inxwrite_books_library_db';
+const LEGACY_DB_NAME = 'inkwell_books_library_db';
 const DB_VERSION = 1;
 const STORE_NAME = 'books';
 
@@ -47,6 +48,17 @@ export class BookLibraryStorage {
 
       request.onsuccess = () => {
         const books = (request.result as LibraryBook[]) || [];
+        if (books.length === 0 && typeof indexedDB !== 'undefined') {
+          BookLibraryStorage.migrateLegacyBooks(db).then((migrated) => {
+            if (migrated && migrated.length > 0) {
+              migrated.sort((a, b) => new Date(b.lastRead || b.dateAdded).getTime() - new Date(a.lastRead || a.dateAdded).getTime());
+              resolve(migrated);
+            } else {
+              resolve(books);
+            }
+          }).catch(() => resolve(books));
+          return;
+        }
         // Sort most recently read or added first
         books.sort((a, b) => new Date(b.lastRead || b.dateAdded).getTime() - new Date(a.lastRead || a.dateAdded).getTime());
         resolve(books);
@@ -216,5 +228,43 @@ export class BookLibraryStorage {
       await this.saveBook(book);
       return book;
     }
+  }
+
+  private static async migrateLegacyBooks(currentDb: IDBDatabase): Promise<LibraryBook[]> {
+    return new Promise((resolve) => {
+      try {
+        const req = indexedDB.open(LEGACY_DB_NAME);
+        req.onerror = () => resolve([]);
+        req.onsuccess = () => {
+          const legacyDb = req.result;
+          if (!legacyDb.objectStoreNames.contains(STORE_NAME)) {
+            legacyDb.close();
+            return resolve([]);
+          }
+          const tx = legacyDb.transaction(STORE_NAME, 'readonly');
+          const store = tx.objectStore(STORE_NAME);
+          const getReq = store.getAll();
+          getReq.onerror = () => resolve([]);
+          getReq.onsuccess = () => {
+            const oldBooks = (getReq.result as LibraryBook[]) || [];
+            if (oldBooks.length > 0) {
+              try {
+                const writeTx = currentDb.transaction(STORE_NAME, 'readwrite');
+                const writeStore = writeTx.objectStore(STORE_NAME);
+                for (const b of oldBooks) {
+                  writeStore.put(b);
+                }
+              } catch (err) {
+                console.warn('Error saving migrated books', err);
+              }
+            }
+            legacyDb.close();
+            resolve(oldBooks);
+          };
+        };
+      } catch (e) {
+        resolve([]);
+      }
+    });
   }
 }

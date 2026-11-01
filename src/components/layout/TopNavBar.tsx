@@ -107,7 +107,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
             fontSize: '16px',
             color: 'var(--accent-primary)' 
           }}>
-            Inkwell
+            InxWrite
           </span>
           <span style={{ color: 'var(--text-faint)' }}>|</span>
 

@@ -416,7 +416,7 @@ export const BookLibraryModal: React.FC<BookLibraryModalProps> = ({
                   </div>
 
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    InkWell Manuscript • {ProjectStorage.countTotalWords(project.manuscript).toLocaleString()} words drafted
+                    InxWrite Manuscript • {ProjectStorage.countTotalWords(project.manuscript).toLocaleString()} words drafted
                   </div>
                 </div>
               </div>

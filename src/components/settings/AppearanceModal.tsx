@@ -84,7 +84,7 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
 
   const handleDeleteCustomFont = async (font: CustomFont, e: React.MouseEvent) => {
     e.stopPropagation();
-    const confirmed = window.confirm(`Uninstall custom font "${font.name}" from Inkwell?`);
+    const confirmed = window.confirm(`Uninstall custom font "${font.name}" from InxWrite?`);
     if (confirmed) {
       await CustomFontStorage.deleteFont(font.id);
       setCustomFonts((prev) => prev.filter((f) => f.id !== font.id));
@@ -559,7 +559,7 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleDeleteCustomFont(f, e)}
-                            title="Uninstall font from Inkwell"
+                            title="Uninstall font from InxWrite"
                             style={{
                               padding: '3px',
                               color: 'var(--text-muted)',

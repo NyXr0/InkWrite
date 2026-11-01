@@ -28,11 +28,12 @@ export const DEFAULT_RULER_SETTINGS: RulerSettings = {
   showRuler: true,
 };
 
-const RULER_STORAGE_KEY = 'inkwell_ruler_settings';
+const RULER_STORAGE_KEY = 'inxwrite_ruler_settings';
+const LEGACY_RULER_STORAGE_KEY = 'inkwell_ruler_settings';
 
 export function loadRulerSettings(): RulerSettings {
   try {
-    const raw = localStorage.getItem(RULER_STORAGE_KEY);
+    const raw = localStorage.getItem(RULER_STORAGE_KEY) || localStorage.getItem(LEGACY_RULER_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       return { ...DEFAULT_RULER_SETTINGS, ...parsed };

@@ -1,6 +1,7 @@
 import { CustomFont } from '../types/appearance';
 
-const DB_NAME = 'inkwell_custom_fonts_db';
+const DB_NAME = 'inxwrite_custom_fonts_db';
+const LEGACY_DB_NAME = 'inkwell_custom_fonts_db';
 const DB_VERSION = 1;
 const STORE_NAME = 'fonts';
 
@@ -48,7 +49,7 @@ export class CustomFontStorage {
   private static registerFontInDOM(font: CustomFont): Promise<void> {
     return new Promise((resolve) => {
       // 1. Inject @font-face stylesheet
-      const styleId = `inkwell-font-${font.id}`;
+      const styleId = `inxwrite-font-${font.id}`;
       let styleTag = document.getElementById(styleId) as HTMLStyleElement | null;
       if (!styleTag) {
         styleTag = document.createElement('style');
@@ -168,7 +169,7 @@ export class CustomFontStorage {
       });
 
       // Remove style tag if present
-      const styleTag = document.getElementById(`inkwell-font-${id}`);
+      const styleTag = document.getElementById(`inxwrite-font-${id}`) || document.getElementById(`inkwell-font-${id}`);
       if (styleTag && styleTag.parentNode) {
         styleTag.parentNode.removeChild(styleTag);
       }

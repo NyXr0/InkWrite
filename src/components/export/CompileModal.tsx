@@ -114,7 +114,7 @@ export const CompileModal: React.FC<CompileModalProps> = ({
         const parsed = JSON.parse(rawJson);
 
         if (!parsed || !parsed.settings || !parsed.manuscript || !Array.isArray(parsed.manuscript)) {
-          throw new Error('Invalid Inkwell project schema. Missing settings or manuscript arrays.');
+          throw new Error('Invalid InxWrite project schema. Missing settings or manuscript arrays.');
         }
 
         // If ID matches, give it a new ID if needed or preserve

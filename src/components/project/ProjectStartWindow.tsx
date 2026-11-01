@@ -90,7 +90,7 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
         const parsed = JSON.parse(rawJson);
 
         if (!parsed || !parsed.settings || !parsed.manuscript || !Array.isArray(parsed.manuscript)) {
-          alert('Invalid Inkwell project schema. Missing settings or manuscript arrays.');
+          alert('Invalid InxWrite project schema. Missing settings or manuscript arrays.');
           return;
         }
 
@@ -166,7 +166,7 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
             color: 'var(--accent-primary)',
             letterSpacing: '-0.02em',
           }}>
-            Inkwell
+            InxWrite
           </span>
           <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>
             {primaryMode === 'writer' ? 'Studio' : 'Library'}
@@ -436,7 +436,7 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
             color: 'var(--text-primary)',
             marginBottom: '8px',
           }}>
-            Inkwell
+            InxWrite
           </h1>
 
           <p style={{

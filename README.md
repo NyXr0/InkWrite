@@ -1,25 +1,25 @@
-# InkWell
+# InxWrite
 
 <p align="center">
   <strong>The Novelist’s Studio & Personal eBook Reading Sanctuary</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Platform-Web%20%2F%20Desktop-orange?style=flat-square" alt="Platform" />
+  <img src="https://img.shields.io/badge/Platform-Web%20Application-orange?style=flat-square" alt="Platform" />
   <img src="https://img.shields.io/badge/Engine-React%2018%20%7C%20TypeScript%20%7C%20Vite-blue?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/Storage-Local%20First%20(IndexedDB)-emerald?style=flat-square" alt="Storage" />
-  <img src="https://img.shields.io/badge/Build-Production%20Ready-brightgreen?style=flat-square" alt="Build" />
+  <img src="https://img.shields.io/badge/License-MIT-purple?style=flat-square" alt="License" />
 </p>
 
 ---
 
 ## 📖 Overview
 
-**InkWell** is a local-first, distraction-free environment tailored for novelists, screenwriters, worldbuilders, and avid readers. InkWell bridges the gap between deep creative manuscript composition and immersive book reading by dividing the application into two integrated pillars accessible from the primary landing view:
+**InxWrite** is a local-first, distraction-free modern web environment tailored for novelists, screenwriters, worldbuilders, and avid readers. InxWrite bridges the gap between deep creative manuscript composition and immersive book reading by dividing the application into two integrated pillars accessible from the primary landing view:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│  InkWell                     [1st: Writer Mode | 2nd: Reading Library] │
+│  InxWrite                    [1st: Writer Mode | 2nd: Reading Library] │
 ├───────────────────────────────────┬────────────────────────────────────┤
 │   Part 1: Novel Studio            │   Part 2: eBook Reading Library    │
 │   ────────────────────            │   ─────────────────────────────    │
@@ -55,7 +55,7 @@
 * **Live Autocomplete**: Type `@` to reference characters and lore or `[[slug|Name]]` to create inline wiki links.
 
 #### 3. Interconnected Codex & Story Bible (Anti-Hallucination Knowledge Graph)
-InkWell differentiates 5 dedicated story element categories to ensure the author and system maintain continuity without contradictions:
+InxWrite differentiates 5 dedicated story element categories to ensure the author and system maintain continuity without contradictions:
 
 | Category | Color & Icon | Dedicated Attributes & Scope |
 | :--- | :--- | :--- |
@@ -112,7 +112,7 @@ The Reading Library operates directly from the landing window, allowing you to r
 
 ## 🎨 Themes & Ergonomics
 
-InkWell is built with high-contrast, eye-friendly palettes designed for marathon writing and reading sessions:
+InxWrite is built with high-contrast, eye-friendly palettes designed for marathon writing and reading sessions:
 
 * 📜 **Paper**: Clean, crisp parchment optimized for daytime drafting.
 * ☕ **Sepia**: Warm, low-contrast tone easing eyestrain during prolonged writing.
@@ -156,12 +156,12 @@ InkWell is built with high-contrast, eye-friendly palettes designed for marathon
 * [Node.js](https://nodejs.org/) (version 18+ recommended)
 * `npm` or `pnpm`
 
-### Installation
+### Installation & Development
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/NyXr0/InkWell.git
-   cd InkWell
+   git clone https://github.com/NyXr0/InkWell.git InxWrite
+   cd InxWrite
    ```
 
 2. **Install dependencies:**
@@ -186,54 +186,39 @@ InkWell is built with high-contrast, eye-friendly palettes designed for marathon
    npm run preview
    ```
 
-6. **Package Windows Release Installer (.exe):**
-   ```bash
-   npm run package:windows
-   ```
-   Generates a standalone single-file GUI Windows installer (`release/InkWell-Setup-0.1.0.exe`) and portable distribution archive (`release/InkWell-0.1.0-Windows-Portable.zip`).
-
----
-
-## 📦 Windows Release & Desktop Installation
-
-InkWell features a native Windows desktop pipeline:
-
-### 1. Standalone Windows GUI Setup (`InkWell-Setup-0.1.0.exe`)
-* **Zero Dependencies**: Self-extracting single-file GUI installer with official branded icon.
-* **Per-User Clean Installation**: Installs into `%LOCALAPPDATA%\Programs\InkWell` without requiring administrator privileges or UAC prompts.
-* **Desktop & Start Menu Integration**: Automatically creates Windows shortcuts with app icons.
-* **Add / Remove Programs Support**: Registers cleanly in the Windows Registry (`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\InkWell`) with a native uninstaller (`Uninstall-InkWell.exe`).
-
-### 2. Portable Edition (`InkWell-0.1.0-Windows-Portable.zip`)
-* Extract the `.zip` archive to any directory or thumb drive.
-* Run `InkWell.exe` to start the standalone, chromeless desktop window with local storage persistence.
-
-### 3. Automated GitHub Actions CI/CD
-* The `.github/workflows/release.yml` workflow automatically builds Windows desktop installers whenever a release tag is pushed (`git tag v0.1.0 && git push origin v0.1.0`) or triggered manually via `workflow_dispatch`.
-
 ---
 
 ## 📂 Project Architecture
 
 ```
-InkWell/
+InxWrite/
 ├── src/
 │   ├── components/
-│   │   ├── codex/          # Codex & Lore Bible views, modals, and canon web
+│   │   ├── binder/         # Manuscript Binder tree outliner
+│   │   ├── codex/          # Codex & Lore Bible views, modals, and Obsidian node graph
 │   │   ├── corkboard/      # Visual Corkboard scene index cards
 │   │   ├── editor/         # CodeMirror 6 editor, margin ruler, split view
+│   │   ├── export/         # Manuscript compiler and HTML/TXT/MD export
+│   │   ├── focus/          # Fullscreen distraction-free typewriter mode
+│   │   ├── insights/       # Word sprint engines, velocity targets & metrics
 │   │   ├── inspector/      # Right-hand scene metadata, comments & snapshots
-│   │   ├── layout/         # Top navigation bar, status bar, and focus mode
+│   │   ├── layout/         # Top navigation bar, status bar, and mode switches
 │   │   ├── library/        # Bookshelf gallery and eBook reader integration
 │   │   ├── palette/        # Command palette (Ctrl+K)
 │   │   ├── project/        # Primary Landing page & Writer/Library switcher
 │   │   ├── reading/        # Reading Mode, Dual-Page spread, and PDF viewer
+│   │   ├── settings/       # Appearance, themes, and custom font importer
 │   │   ├── timeline/       # Multi-lane chronological narrative timeline
-│   │   └── ui/             # Modals, sliders, toolbars, and appearance controls
+│   │   └── ui/             # Modals, sliders, toolbars, and buttons
 │   ├── core/
+│   │   ├── appearanceStorage.ts   # Persistent theme and typography configuration
 │   │   ├── bookLibraryStorage.ts  # IndexedDB engine for personal eBooks
 │   │   ├── codexSchema.ts         # Schema, field definitions & templates for Codex
-│   │   └── storage.ts             # Project persistence, backups & migration
+│   │   ├── customFontStorage.ts   # IndexedDB custom typography and FontFace loader
+│   │   ├── epubParser.ts          # EPUB format unzipper and DOM parser
+│   │   ├── sampleData.ts          # Default starter manuscript and story elements
+│   │   ├── storage.ts             # Project persistence, backups & migration
+│   │   └── textBookParser.ts      # Plain text & Markdown chapter detector
 │   ├── types/
 │   │   ├── appearance.ts   # Typography, themes, and styling types
 │   │   ├── book.ts         # eBook formats, chapters, and bookmarks types
@@ -250,7 +235,7 @@ InkWell/
 
 ## 🔒 Privacy & Data Ownership
 
-InkWell is built on the philosophy of **complete data sovereignty**:
+InxWrite is built on the philosophy of **complete data sovereignty**:
 * **100% Client-Side**: Your manuscripts, lore bibles, and imported books stay on your device inside your browser's IndexedDB.
 * **No Telemetry**: No tracking scripts, analytics, or external data transmission.
 * **Full Backups**: Export your projects to JSON backups or compiled manuscripts anytime with a single click.

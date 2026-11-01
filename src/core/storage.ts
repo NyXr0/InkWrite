@@ -1,13 +1,18 @@
 import { ProjectData, SceneItem, FolderItem } from '../types/project';
 import { initialProjectData } from './sampleData';
 
-const PROJECTS_COLLECTION_KEY = 'inkwell_projects_collection_v1';
-const ACTIVE_PROJECT_ID_KEY = 'inkwell_active_project_id_v1';
+const PROJECTS_COLLECTION_KEY = 'inxwrite_projects_collection_v1';
+const LEGACY_PROJECTS_KEY = 'inkwell_projects_collection_v1';
+const ACTIVE_PROJECT_ID_KEY = 'inxwrite_active_project_id_v1';
+const LEGACY_ACTIVE_ID_KEY = 'inkwell_active_project_id_v1';
 
 export class ProjectStorage {
   static loadAllProjects(): ProjectData[] {
     try {
-      const saved = localStorage.getItem(PROJECTS_COLLECTION_KEY);
+      let saved = localStorage.getItem(PROJECTS_COLLECTION_KEY);
+      if (!saved) {
+        saved = localStorage.getItem(LEGACY_PROJECTS_KEY);
+      }
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -33,7 +38,7 @@ export class ProjectStorage {
 
   static loadActiveProjectId(): string {
     try {
-      const activeId = localStorage.getItem(ACTIVE_PROJECT_ID_KEY);
+      const activeId = localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || localStorage.getItem(LEGACY_ACTIVE_ID_KEY);
       if (activeId) return activeId;
     } catch (e) {
       // ignore
@@ -221,7 +226,7 @@ export class ProjectStorage {
 
     lines.push(`# ${project.settings.title}`);
     lines.push('');
-    lines.push(`*A manuscript created with Inkwell*`);
+    lines.push(`*A manuscript created with InxWrite*`);
     lines.push('');
     lines.push('---');
     lines.push('');
