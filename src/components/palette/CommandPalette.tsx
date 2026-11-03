@@ -15,7 +15,8 @@ import {
   Palette,
   BookOpen,
   Download,
-  Library
+  Library,
+  GraduationCap
 } from 'lucide-react';
 
 interface CommandPaletteProps {
@@ -31,6 +32,7 @@ interface CommandPaletteProps {
   onOpenReadingMode?: () => void;
   onSelectTheme: (theme: ThemeMode) => void;
   onOpenAppearance: () => void;
+  onOpenTutorial?: () => void;
   onOpenCompile?: () => void;
   onOpenReadingLibrary?: () => void;
   onOpenNewProject: () => void;
@@ -50,6 +52,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onOpenReadingMode,
   onSelectTheme,
   onOpenAppearance,
+  onOpenTutorial,
   onOpenCompile,
   onOpenReadingLibrary,
   onOpenNewProject,
@@ -124,6 +127,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       icon: <Eye size={14} />,
       action: () => { onEnterFocusMode(); onClose(); },
     },
+    ...(onOpenTutorial ? [{
+      id: 'cmd-tutorial',
+      title: 'Open InxWrite Tutorial & Interactive Feature Guide...',
+      shortcut: 'Tutorial',
+      icon: <GraduationCap size={14} color="var(--accent-primary)" />,
+      action: () => { onClose(); onOpenTutorial(); },
+    }] : []),
     {
       id: 'cmd-read',
       title: 'Enter book reading mode',

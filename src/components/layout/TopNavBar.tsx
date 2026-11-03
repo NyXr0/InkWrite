@@ -22,7 +22,8 @@ import {
   Palette,
   PenTool,
   Library,
-  Download
+  Download,
+  GraduationCap
 } from 'lucide-react';
 
 interface TopNavBarProps {
@@ -33,6 +34,7 @@ interface TopNavBarProps {
   onSelectTheme: (theme: ThemeMode) => void;
   onOpenPalette: () => void;
   onOpenAppearance: () => void;
+  onOpenTutorial?: () => void;
   onOpenCompile?: () => void;
   onOpenReadingLibrary?: () => void;
   onEnterFocusMode: () => void;
@@ -53,6 +55,7 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
   onSelectTheme,
   onOpenPalette,
   onOpenAppearance,
+  onOpenTutorial,
   onOpenCompile,
   onOpenReadingLibrary,
   onEnterFocusMode,
@@ -572,6 +575,38 @@ export const TopNavBar: React.FC<TopNavBarProps> = ({
           >
             <Download size={14} color="var(--accent-primary)" />
             <span>Export</span>
+          </button>
+        )}
+
+        {/* Revisit Tutorial & Interactive Feature Guide */}
+        {onOpenTutorial && (
+          <button
+            onClick={onOpenTutorial}
+            title="Revisit Tutorial & Interactive Guide"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 10px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
+              backgroundColor: 'var(--bg-active)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-subtle)',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+              e.currentTarget.style.color = 'var(--accent-primary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--bg-active)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+            }}
+          >
+            <GraduationCap size={15} color="var(--accent-primary)" />
+            <span>Tutorial</span>
           </button>
         )}
 

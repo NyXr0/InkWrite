@@ -18,7 +18,9 @@ import {
   Palette,
   Upload,
   PenTool,
-  Library
+  Library,
+  GraduationCap,
+  ChevronRight
 } from 'lucide-react';
 
 interface ProjectStartWindowProps {
@@ -35,6 +37,7 @@ interface ProjectStartWindowProps {
   theme: ThemeMode;
   onSelectTheme: (theme: ThemeMode) => void;
   onOpenAppearance?: () => void;
+  onOpenTutorial?: () => void;
   onImportProject?: (project: ProjectData) => void;
   appearance: AppearanceSettings;
   onUpdateAppearance: (settings: AppearanceSettings) => void;
@@ -51,6 +54,7 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
   theme,
   onSelectTheme,
   onOpenAppearance,
+  onOpenTutorial,
   onImportProject,
   appearance,
   onUpdateAppearance,
@@ -295,6 +299,38 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
                 <span>Import Backup</span>
               </button>
             </>
+          )}
+
+          {/* Tutorial Modal trigger */}
+          {onOpenTutorial && (
+            <button
+              onClick={onOpenTutorial}
+              title="Open InxWrite Interactive Tour & Tutorial..."
+              style={{
+                padding: '6px 10px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--bg-active)',
+                color: 'var(--text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                border: '1px solid var(--border-subtle)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                e.currentTarget.style.color = 'var(--accent-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-active)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+            >
+              <GraduationCap size={15} color="var(--accent-primary)" />
+              <span>Tutorial</span>
+            </button>
           )}
 
           {/* Appearance Modal trigger */}
@@ -728,6 +764,63 @@ export const ProjectStartWindow: React.FC<ProjectStartWindowProps> = ({
                 <ArrowRight size={14} />
               </div>
             </div>
+
+            {/* Interactive Tour & Tutorial Quick Access Card */}
+            {onOpenTutorial && (
+              <div
+                onClick={onOpenTutorial}
+                style={{
+                  backgroundColor: 'var(--bg-surface)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border-subtle)',
+                  padding: '14px 20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  boxShadow: 'var(--shadow-sm)',
+                  transition: 'all 0.15s ease',
+                  marginTop: '12px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                  e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                  e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(235, 94, 40, 0.12)',
+                    color: 'var(--accent-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <GraduationCap size={20} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>Interactive App Tutorial & Guide</span>
+                      <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '4px', backgroundColor: 'var(--accent-pill)', color: 'var(--accent-primary)' }}>Tour</span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      New to InxWrite or need a refresher? Explore the Binder, Editor Ruler, Codex Node Graph, and eBook Reader.
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 500, color: 'var(--accent-primary)' }}>
+                  <span>Open Tutorial</span>
+                  <ChevronRight size={14} />
+                </div>
+              </div>
+            )}
 
             {/* Existing Projects List */}
             <div>

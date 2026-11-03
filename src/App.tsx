@@ -32,6 +32,7 @@ import { CustomFontStorage } from './core/customFontStorage';
 import { AppearanceSettings } from './types/appearance';
 import { AppearanceModal } from './components/settings/AppearanceModal';
 import { CompileModal } from './components/export/CompileModal';
+import { TutorialModal } from './components/tutorial/TutorialModal';
 import { CustomBackdrop } from './components/layout/CustomBackdrop';
 import './styles/theme.css';
 
@@ -43,6 +44,21 @@ export const App: React.FC = () => {
   // Appearance & Wallpaper settings (persisted across projects)
   const [appearance, setAppearance] = useState<AppearanceSettings>(() => AppearanceStorage.load());
   const [isAppearanceOpen, setIsAppearanceOpen] = useState<boolean>(false);
+
+  // Interactive Onboarding & Tutorial state
+  const [isTutorialOpen, setIsTutorialOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return !localStorage.getItem('inxwrite_tutorial_seen_v1');
+    }
+    return false;
+  });
+
+  const handleCloseTutorial = (dontShowAgain?: boolean) => {
+    setIsTutorialOpen(false);
+    if (dontShowAgain && typeof window !== 'undefined') {
+      localStorage.setItem('inxwrite_tutorial_seen_v1', 'true');
+    }
+  };
 
   // Project session state: only starts when user explicitly starts or opens a project
   const [isProjectOpen, setIsProjectOpen] = useState<boolean>(false);
@@ -822,6 +838,7 @@ export const App: React.FC = () => {
           theme={theme}
           onSelectTheme={handleSelectTheme}
           onOpenAppearance={() => setIsAppearanceOpen(true)}
+          onOpenTutorial={() => setIsTutorialOpen(true)}
           appearance={appearance}
           onUpdateAppearance={setAppearance}
           initialMode={isReadingLibraryActive ? 'library' : 'writer'}
@@ -833,6 +850,29 @@ export const App: React.FC = () => {
           onClose={() => setIsAppearanceOpen(false)}
           settings={appearance}
           onChange={setAppearance}
+          onOpenTutorial={() => setIsTutorialOpen(true)}
+        />
+        <TutorialModal
+          isOpen={isTutorialOpen}
+          onClose={handleCloseTutorial}
+          onNavigateToView={(view) => {
+            setIsReadingLibraryActive(false);
+            if (projects.length > 0) {
+              handleOpenProject(activeProjectId || projects[0].settings.id);
+            }
+            setCurrentView(view);
+          }}
+          onOpenReadingLibrary={() => {
+            setIsReadingLibraryActive(true);
+          }}
+          onEnterFocusMode={() => {
+            if (projects.length > 0) {
+              handleOpenProject(activeProjectId || projects[0].settings.id);
+            }
+            setIsFocusMode(true);
+          }}
+          onOpenAppearance={() => setIsAppearanceOpen(true)}
+          isProjectOpen={isProjectOpen}
         />
       </div>
     );
@@ -864,6 +904,7 @@ export const App: React.FC = () => {
         onSelectTheme={handleSelectTheme}
         onOpenPalette={() => setIsPaletteOpen(true)}
         onOpenAppearance={() => setIsAppearanceOpen(true)}
+        onOpenTutorial={() => setIsTutorialOpen(true)}
         onOpenCompile={() => setIsCompileOpen(true)}
         onOpenReadingLibrary={() => setIsReadingLibraryActive(true)}
         onEnterFocusMode={() => setIsFocusMode(true)}
@@ -996,6 +1037,7 @@ export const App: React.FC = () => {
             onUpdateAppearance={setAppearance}
             onBackToWriter={() => setCurrentView('write')}
             writerProjectTitle={activeProject.settings.title}
+            onOpenTutorial={() => setIsTutorialOpen(true)}
           />
         )}
 
@@ -1059,6 +1101,7 @@ export const App: React.FC = () => {
         onOpenReadingMode={() => setCurrentView('read')}
         onSelectTheme={handleSelectTheme}
         onOpenAppearance={() => setIsAppearanceOpen(true)}
+        onOpenTutorial={() => setIsTutorialOpen(true)}
         onOpenCompile={() => setIsCompileOpen(true)}
         onOpenReadingLibrary={() => setIsReadingLibraryActive(true)}
         onOpenNewProject={() => setIsNewProjectOpen(true)}
@@ -1100,6 +1143,18 @@ export const App: React.FC = () => {
         onClose={() => setIsAppearanceOpen(false)}
         settings={appearance}
         onChange={setAppearance}
+        onOpenTutorial={() => setIsTutorialOpen(true)}
+      />
+
+      {/* Interactive Tour & Tutorial Modal */}
+      <TutorialModal
+        isOpen={isTutorialOpen}
+        onClose={handleCloseTutorial}
+        onNavigateToView={(view) => setCurrentView(view)}
+        onOpenReadingLibrary={() => setIsReadingLibraryActive(true)}
+        onEnterFocusMode={() => setIsFocusMode(true)}
+        onOpenAppearance={() => setIsAppearanceOpen(true)}
+        isProjectOpen={true}
       />
     </div>
   );

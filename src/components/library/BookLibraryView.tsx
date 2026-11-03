@@ -33,7 +33,8 @@ import {
   Sparkles,
   Download,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  GraduationCap
 } from 'lucide-react';
 
 interface BookLibraryViewProps {
@@ -42,6 +43,7 @@ interface BookLibraryViewProps {
   onUpdateAppearance: (settings: AppearanceSettings) => void;
   onBackToWriter?: () => void;
   writerProjectTitle?: string;
+  onOpenTutorial?: () => void;
 }
 
 export const BookLibraryView: React.FC<BookLibraryViewProps> = ({
@@ -50,6 +52,7 @@ export const BookLibraryView: React.FC<BookLibraryViewProps> = ({
   onUpdateAppearance,
   onBackToWriter,
   writerProjectTitle,
+  onOpenTutorial,
 }) => {
   // Bookshelf state
   const [books, setBooks] = useState<LibraryBook[]>([]);
@@ -1765,6 +1768,38 @@ export const BookLibraryView: React.FC<BookLibraryViewProps> = ({
             <Plus size={14} />
             <span>Add Book</span>
           </button>
+
+          {/* Tutorial Button */}
+          {onOpenTutorial && (
+            <button
+              onClick={onOpenTutorial}
+              title="Open InxWrite Tutorial & Guide"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '7px 12px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 500,
+                backgroundColor: 'var(--bg-active)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-subtle)',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                e.currentTarget.style.color = 'var(--accent-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-active)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+            >
+              <GraduationCap size={15} color="var(--accent-primary)" />
+              <span>Tutorial</span>
+            </button>
+          )}
         </div>
       </header>
 

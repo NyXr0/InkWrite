@@ -26,7 +26,8 @@ import {
   Plus,
   AlertCircle,
   FileUp,
-  CheckCircle2
+  CheckCircle2,
+  GraduationCap
 } from 'lucide-react';
 
 interface AppearanceModalProps {
@@ -34,6 +35,7 @@ interface AppearanceModalProps {
   onClose: () => void;
   settings: AppearanceSettings;
   onChange: (updated: AppearanceSettings) => void;
+  onOpenTutorial?: () => void;
 }
 
 export const AppearanceModal: React.FC<AppearanceModalProps> = ({
@@ -41,6 +43,7 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
   onClose,
   settings,
   onChange,
+  onOpenTutorial,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fontFileInputRef = useRef<HTMLInputElement>(null);
@@ -799,8 +802,42 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
           borderTop: '1px solid var(--border-subtle)',
           backgroundColor: 'var(--bg-app)',
           display: 'flex',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
+          alignItems: 'center',
         }}>
+          {onOpenTutorial ? (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenTutorial();
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                backgroundColor: 'var(--bg-surface)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border-subtle)',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--accent-primary)';
+                e.currentTarget.style.backgroundColor = 'var(--bg-active)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--text-secondary)';
+                e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
+              }}
+            >
+              <GraduationCap size={15} color="var(--accent-primary)" />
+              <span>Revisit InxWrite Tutorial</span>
+            </button>
+          ) : <div />}
+
           <button
             onClick={onClose}
             style={{

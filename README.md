@@ -93,6 +93,11 @@ InxWrite differentiates 5 dedicated story element categories to ensure the autho
 * Export complete manuscript to **Markdown (.md)**, **Plain Text (.txt)**, or formatted HTML.
 * Full JSON project backups with 1-click restore.
 
+#### 8. Interactive App Tutorial & Onboarding Guide
+* **7-Step Guided Tour**: Visual walkthrough explaining the twin pillars, binder outliner, editor margin ruler, Obsidian node graph, corkboard, eBook spread reader, and focus mode.
+* **Instant Revisit Button**: Reopen the tutorial anytime via the **🎓 Tutorial** button in the Top Navigation Bar, start screen, settings, or Command Palette (`Ctrl+K`).
+* **Keyboard Friendly**: Navigate steps with `Left Arrow` / `Right Arrow` and dismiss with `Esc`.
+
 ---
 
 ### 📚 Part 2: Personal Reading Library (Reader Mode)
@@ -130,7 +135,7 @@ InxWrite is built with high-contrast, eye-friendly palettes designed for maratho
 | `Ctrl + S` | Force Project Save to Local Storage |
 | `Ctrl + Shift + F` | Enter / Exit Distraction-Free Focus Mode |
 | `Ctrl + Enter` | Create a New Scene in Active Chapter |
-| `Left Arrow` / `Right Arrow` | Previous / Next Page (Reading Mode) |
+| `Left Arrow` / `Right Arrow` | Previous / Next Page (Reading Mode & Tutorial) |
 | `@` (in Editor) | Open Lore & Character Mention Autocomplete |
 | `Esc` | Dismiss modals, popups, or exit Focus Mode |
 
