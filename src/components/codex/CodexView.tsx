@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { LoreEntry, LoreCategory, SceneItem, TimelineEvent } from '../../types/project';
+import React, { useState, useMemo, useRef } from 'react';
+import { LoreEntry, LoreCategory, SceneItem, TimelineEvent, LoreImage } from '../../types/project';
 import { CODEX_CATEGORIES, CodexCategoryConfig, CodexFieldDefinition } from '../../core/codexSchema';
+import { compressAndReadImageFile, isValidImageUrl, createLoreImageItem } from '../../core/imageUtils';
+import { ImageLightboxModal } from '../ui/ImageLightboxModal';
 import { NewCodexModal } from './NewCodexModal';
 import { ObsidianNodeGraph } from './ObsidianNodeGraph';
 import { 
@@ -25,7 +27,11 @@ import {
   Network,
   Compass,
   GitFork,
-  Maximize2
+  Maximize2,
+  Image as ImageIcon,
+  Upload,
+  Star,
+  Check
 } from 'lucide-react';
 
 interface CodexViewProps {
@@ -37,7 +43,9 @@ interface CodexViewProps {
     name?: string, 
     content?: string, 
     attributes?: Record<string, string>, 
-    role?: string
+    role?: string,
+    imageUrl?: string,
+    gallery?: LoreImage[]
   ) => string | void;
   onDeleteLore: (loreId: string) => void;
   onOpenScene: (sceneId: string) => void;
@@ -46,7 +54,7 @@ interface CodexViewProps {
 }
 
 export type CodexRibbonTab = 'dossier' | 'graph' | 'local-graph';
-type CodexElementTab = 'profile' | 'web' | 'graph' | 'manuscript' | 'timeline' | 'notes';
+type CodexElementTab = 'profile' | 'visuals' | 'web' | 'graph' | 'manuscript' | 'timeline' | 'notes';
 
 export const CodexView: React.FC<CodexViewProps> = ({
   loreList,
@@ -72,6 +80,18 @@ export const CodexView: React.FC<CodexViewProps> = ({
   const [newRelType, setNewRelType] = useState('');
   const [newAlias, setNewAlias] = useState('');
 
+  // Image & Visuals management state
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [isEnteringPortraitUrl, setIsEnteringPortraitUrl] = useState(false);
+  const [portraitUrlInput, setPortraitUrlInput] = useState('');
+  const [isAddingGalleryUrl, setIsAddingGalleryUrl] = useState(false);
+  const [galleryUrlInput, setGalleryUrlInput] = useState('');
+  const [galleryCaptionInput, setGalleryCaptionInput] = useState('');
+  const [imageError, setImageError] = useState('');
+  const portraitFileInputRef = useRef<HTMLInputElement>(null);
+  const galleryFileInputRef = useRef<HTMLInputElement>(null);
+
   // Active entry resolution
   const activeEntry = loreList.find((item) => item.id === selectedId) || loreList[0];
   const activeConfig: CodexCategoryConfig = activeEntry 
@@ -83,9 +103,10 @@ export const CodexView: React.FC<CodexViewProps> = ({
     entryName: string, 
     starterContent: string, 
     attributes?: Record<string, string>, 
-    role?: string
+    role?: string,
+    imageUrl?: string
   ) => {
-    const newId = onAddLore(category, entryName, starterContent, attributes, role);
+    const newId = onAddLore(category, entryName, starterContent, attributes, role, imageUrl);
     if (typeof newId === 'string') {
       setSelectedId(newId);
     }
@@ -93,6 +114,168 @@ export const CodexView: React.FC<CodexViewProps> = ({
       setSelectedCategoryFilter('all');
     }
   };
+
+  // Image actions for active entry
+  const handleUploadPortraitFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeEntry) return;
+    try {
+      setImageError('');
+      const dataUrl = await compressAndReadImageFile(file, 1200, 0.85);
+      const updatedGallery = [...(activeEntry.gallery || [])];
+      // If not already in gallery, add it so it's kept in the visual record
+      if (!updatedGallery.some((g) => g.url === dataUrl)) {
+        updatedGallery.unshift(createLoreImageItem(dataUrl, 'Primary Portrait'));
+      }
+      onUpdateLore({
+        ...activeEntry,
+        imageUrl: dataUrl,
+        gallery: updatedGallery,
+      });
+      setIsEnteringPortraitUrl(false);
+      setPortraitUrlInput('');
+    } catch (err) {
+      setImageError('Failed to process image file. Please try another format.');
+    } finally {
+      if (portraitFileInputRef.current) portraitFileInputRef.current.value = '';
+    }
+  };
+
+  const handleApplyPortraitUrl = () => {
+    if (!activeEntry || !portraitUrlInput.trim()) return;
+    const url = portraitUrlInput.trim();
+    if (!isValidImageUrl(url)) {
+      setImageError('Please enter a valid image URL (e.g. https://... or data:image/...).');
+      return;
+    }
+    const updatedGallery = [...(activeEntry.gallery || [])];
+    if (!updatedGallery.some((g) => g.url === url)) {
+      updatedGallery.unshift(createLoreImageItem(url, 'Primary Portrait'));
+    }
+    onUpdateLore({
+      ...activeEntry,
+      imageUrl: url,
+      gallery: updatedGallery,
+    });
+    setIsEnteringPortraitUrl(false);
+    setPortraitUrlInput('');
+    setImageError('');
+  };
+
+  const handleRemovePortrait = () => {
+    if (!activeEntry) return;
+    onUpdateLore({
+      ...activeEntry,
+      imageUrl: undefined,
+    });
+  };
+
+  const handleUploadGalleryFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeEntry) return;
+    try {
+      setImageError('');
+      const dataUrl = await compressAndReadImageFile(file, 1400, 0.85);
+      const newImg = createLoreImageItem(dataUrl, galleryCaptionInput.trim() || undefined);
+      const updatedGallery = [newImg, ...(activeEntry.gallery || [])];
+      onUpdateLore({
+        ...activeEntry,
+        imageUrl: activeEntry.imageUrl || dataUrl, // if no primary yet, set as primary
+        gallery: updatedGallery,
+      });
+      setGalleryCaptionInput('');
+    } catch (err) {
+      setImageError('Failed to upload gallery image. Please try another file.');
+    } finally {
+      if (galleryFileInputRef.current) galleryFileInputRef.current.value = '';
+    }
+  };
+
+  const handleApplyGalleryUrl = () => {
+    if (!activeEntry || !galleryUrlInput.trim()) return;
+    const url = galleryUrlInput.trim();
+    if (!isValidImageUrl(url)) {
+      setImageError('Please enter a valid image URL.');
+      return;
+    }
+    const newImg = createLoreImageItem(url, galleryCaptionInput.trim() || undefined);
+    const updatedGallery = [newImg, ...(activeEntry.gallery || [])];
+    onUpdateLore({
+      ...activeEntry,
+      imageUrl: activeEntry.imageUrl || url,
+      gallery: updatedGallery,
+    });
+    setGalleryUrlInput('');
+    setGalleryCaptionInput('');
+    setIsAddingGalleryUrl(false);
+    setImageError('');
+  };
+
+  const handleDeleteGalleryImage = (imageId: string) => {
+    if (!activeEntry || !activeEntry.gallery) return;
+    const toDelete = activeEntry.gallery.find((g) => g.id === imageId);
+    const updatedGallery = activeEntry.gallery.filter((g) => g.id !== imageId);
+    let updatedImageUrl = activeEntry.imageUrl;
+    // If deleted image was the primary image, switch to the first remaining or undefined
+    if (toDelete && toDelete.url === activeEntry.imageUrl) {
+      updatedImageUrl = updatedGallery[0]?.url || undefined;
+    }
+    onUpdateLore({
+      ...activeEntry,
+      imageUrl: updatedImageUrl,
+      gallery: updatedGallery,
+    });
+  };
+
+  const handleSetAsPrimaryImage = (url: string) => {
+    if (!activeEntry) return;
+    onUpdateLore({
+      ...activeEntry,
+      imageUrl: url,
+    });
+  };
+
+  const handleUpdateGalleryCaption = (imageId: string, newCaption: string) => {
+    if (!activeEntry || !activeEntry.gallery) return;
+    const updatedGallery = activeEntry.gallery.map((g) =>
+      g.id === imageId ? { ...g, caption: newCaption } : g
+    );
+    onUpdateLore({
+      ...activeEntry,
+      gallery: updatedGallery,
+    });
+  };
+
+  // Compile all images for lightbox viewing (primary + gallery items)
+  const allImagesForLightbox = useMemo(() => {
+    if (!activeEntry) return [];
+    const list: { url: string; caption?: string; id?: string }[] = [];
+    const seen = new Set<string>();
+
+    if (activeEntry.imageUrl) {
+      list.push({
+        url: activeEntry.imageUrl,
+        caption: `${activeEntry.name} — Primary Portrait`,
+        id: 'primary',
+      });
+      seen.add(activeEntry.imageUrl);
+    }
+
+    if (activeEntry.gallery) {
+      for (const item of activeEntry.gallery) {
+        if (!seen.has(item.url)) {
+          list.push({
+            url: item.url,
+            caption: item.caption || `${activeEntry.name} Reference`,
+            id: item.id,
+          });
+          seen.add(item.url);
+        }
+      }
+    }
+
+    return list;
+  }, [activeEntry]);
 
   // Category Counts for sidebar filters
   const categoryCounts = useMemo(() => {
@@ -563,19 +746,37 @@ export const CodexView: React.FC<CodexViewProps> = ({
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-                          <div style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '6px',
-                            backgroundColor: itemConfig.bgLight,
-                            border: `1px solid ${itemConfig.borderLight}`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                          }}>
-                            {getCategoryIcon(item.category, 14)}
-                          </div>
+                          {item.imageUrl ? (
+                            <div style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '6px',
+                              overflow: 'hidden',
+                              border: `1.5px solid ${itemConfig.color}`,
+                              backgroundColor: 'var(--bg-app)',
+                              flexShrink: 0,
+                            }}>
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            </div>
+                          ) : (
+                            <div style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '6px',
+                              backgroundColor: itemConfig.bgLight,
+                              border: `1px solid ${itemConfig.borderLight}`,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}>
+                              {getCategoryIcon(item.category, 14)}
+                            </div>
+                          )}
 
                           <div style={{ overflow: 'hidden' }}>
                             <div style={{
@@ -656,122 +857,332 @@ export const CodexView: React.FC<CodexViewProps> = ({
                     paddingBottom: '18px',
                     borderBottom: '1px solid var(--border-subtle)',
                   }}>
-                    <div style={{ flex: 1, marginRight: '20px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                        <input
-                          value={activeEntry.name}
-                          onChange={(e) => {
-                            const newName = e.target.value;
-                            const newSlug = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                            onUpdateLore({
-                              ...activeEntry,
-                              name: newName,
-                              slug: newSlug || activeEntry.slug,
-                            });
-                          }}
-                          placeholder="Entry Name..."
-                          style={{
-                            fontFamily: 'var(--font-serif)',
-                            fontSize: '24px',
-                            fontWeight: 700,
-                            color: 'var(--text-primary)',
-                            border: '1px solid transparent',
-                            borderRadius: '6px',
-                            padding: '4px 8px',
-                            backgroundColor: 'transparent',
-                            width: '100%',
-                            outline: 'none',
-                          }}
-                          onFocus={(e) => {
-                            e.currentTarget.style.borderColor = activeConfig.color;
-                            e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
-                          }}
-                          onBlur={(e) => {
-                            e.currentTarget.style.borderColor = 'transparent';
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }}
-                        />
+                    {/* Hidden Portrait File Input */}
+                    <input
+                      ref={portraitFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleUploadPortraitFile}
+                      style={{ display: 'none' }}
+                    />
 
-                        {/* Category Badge & Converter */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                          <div style={{
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', flex: 1, marginRight: '20px' }}>
+                      {/* Entity Portrait Avatar & Quick Action Overlay */}
+                      <div style={{ position: 'relative', flexShrink: 0 }}>
+                        <div
+                          onClick={() => {
+                            if (activeEntry.imageUrl) {
+                              setLightboxIndex(0);
+                              setLightboxOpen(true);
+                            } else {
+                              portraitFileInputRef.current?.click();
+                            }
+                          }}
+                          title={activeEntry.imageUrl ? "Click to view full image in Lightbox" : "Click to upload portrait / visual"}
+                          style={{
+                            width: '68px',
+                            height: '68px',
+                            borderRadius: '10px',
+                            border: `2px solid ${activeConfig.color}`,
+                            backgroundColor: activeConfig.bgLight,
+                            overflow: 'hidden',
+                            cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '5px',
-                            padding: '4px 10px',
-                            borderRadius: '12px',
-                            backgroundColor: activeConfig.bgLight,
-                            border: `1px solid ${activeConfig.borderLight}`,
-                            color: activeConfig.color,
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                          }}>
-                            {getCategoryIcon(activeEntry.category, 13)}
-                            <span>{activeConfig.name}</span>
-                          </div>
+                            justifyContent: 'center',
+                            boxShadow: 'var(--shadow-sm)',
+                            position: 'relative',
+                          }}
+                          onMouseEnter={(e) => {
+                            const overlay = e.currentTarget.querySelector('.avatar-hover-overlay') as HTMLElement;
+                            if (overlay) overlay.style.opacity = '1';
+                          }}
+                          onMouseLeave={(e) => {
+                            const overlay = e.currentTarget.querySelector('.avatar-hover-overlay') as HTMLElement;
+                            if (overlay) overlay.style.opacity = '0';
+                          }}
+                        >
+                          {activeEntry.imageUrl ? (
+                            <img
+                              src={activeEntry.imageUrl}
+                              alt={activeEntry.name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', color: activeConfig.color }}>
+                              {getCategoryIcon(activeEntry.category, 26)}
+                              <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>+ Art</span>
+                            </div>
+                          )}
 
-                          <select
-                            value={activeEntry.category}
-                            onChange={(e) => onUpdateLore({ ...activeEntry, category: e.target.value as LoreCategory })}
-                            title="Switch category"
+                          {/* Hover action overlay */}
+                          <div
+                            className="avatar-hover-overlay"
                             style={{
-                              fontSize: '11px',
-                              padding: '3px 6px',
-                              borderRadius: '6px',
-                              backgroundColor: 'var(--bg-surface)',
-                              color: 'var(--text-secondary)',
-                              border: '1px solid var(--border-subtle)',
-                              outline: 'none',
-                              cursor: 'pointer',
+                              position: 'absolute',
+                              inset: 0,
+                              backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              opacity: 0,
+                              transition: 'opacity 0.15s ease',
+                              backdropFilter: 'blur(2px)',
                             }}
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <option value="character">Character</option>
-                            <option value="location">Location</option>
-                            <option value="lore">Lore & World</option>
-                            <option value="item">Item & Artifact</option>
-                            <option value="faction">Faction & Order</option>
-                          </select>
+                            <button
+                              type="button"
+                              onClick={() => portraitFileInputRef.current?.click()}
+                              title="Upload / Change Image"
+                              style={{
+                                background: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '4px',
+                                color: '#fff',
+                                padding: '5px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                              }}
+                            >
+                              <Upload size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setIsEnteringPortraitUrl((prev) => !prev)}
+                              title="Enter Image URL"
+                              style={{
+                                background: 'rgba(255,255,255,0.2)',
+                                border: 'none',
+                                borderRadius: '4px',
+                                color: '#fff',
+                                padding: '5px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                              }}
+                            >
+                              <Link2 size={13} />
+                            </button>
+                            {activeEntry.imageUrl && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setLightboxIndex(0);
+                                  setLightboxOpen(true);
+                                }}
+                                title="Expand Fullscreen"
+                                style={{
+                                  background: 'rgba(255,255,255,0.2)',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  color: '#fff',
+                                  padding: '5px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                }}
+                              >
+                                <Maximize2 size={13} />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Subtitle / Role & Wiki Tag */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
-                        <input
-                          value={activeEntry.role || ''}
-                          onChange={(e) => onUpdateLore({ ...activeEntry, role: e.target.value })}
-                          placeholder={`Role / Subtitle (e.g. ${
-                            activeEntry.category === 'character' ? 'Crown Princess' :
-                            activeEntry.category === 'location' ? 'Ancient Capital' :
-                            activeEntry.category === 'lore' ? 'Arcane Axiom' :
-                            activeEntry.category === 'item' ? 'Legendary Blade' :
-                            'Knightly Order'
-                          })...`}
-                          style={{
-                            fontSize: '13px',
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                            border: '1px solid var(--border-subtle)',
-                            backgroundColor: 'var(--bg-surface)',
-                            color: 'var(--text-primary)',
-                            outline: 'none',
-                            width: '260px',
-                          }}
-                        />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                          <input
+                            value={activeEntry.name}
+                            onChange={(e) => {
+                              const newName = e.target.value;
+                              const newSlug = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                              onUpdateLore({
+                                ...activeEntry,
+                                name: newName,
+                                slug: newSlug || activeEntry.slug,
+                              });
+                            }}
+                            placeholder="Entry Name..."
+                            style={{
+                              fontFamily: 'var(--font-serif)',
+                              fontSize: '24px',
+                              fontWeight: 700,
+                              color: 'var(--text-primary)',
+                              border: '1px solid transparent',
+                              borderRadius: '6px',
+                              padding: '4px 8px',
+                              backgroundColor: 'transparent',
+                              width: '100%',
+                              outline: 'none',
+                            }}
+                            onFocus={(e) => {
+                              e.currentTarget.style.borderColor = activeConfig.color;
+                              e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
+                            }}
+                            onBlur={(e) => {
+                              e.currentTarget.style.borderColor = 'transparent';
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                          />
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                          <span>Wiki tag:</span>
-                          <code style={{
-                            fontFamily: 'var(--font-mono)',
-                            color: activeConfig.color,
-                            backgroundColor: activeConfig.bgLight,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            fontSize: '11px',
-                          }}>
-                            [[{activeEntry.slug}|{activeEntry.name}]]
-                          </code>
+                          {/* Category Badge & Converter */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              padding: '4px 10px',
+                              borderRadius: '12px',
+                              backgroundColor: activeConfig.bgLight,
+                              border: `1px solid ${activeConfig.borderLight}`,
+                              color: activeConfig.color,
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                            }}>
+                              {getCategoryIcon(activeEntry.category, 13)}
+                              <span>{activeConfig.name}</span>
+                            </div>
+
+                            <select
+                              value={activeEntry.category}
+                              onChange={(e) => onUpdateLore({ ...activeEntry, category: e.target.value as LoreCategory })}
+                              title="Switch category"
+                              style={{
+                                fontSize: '11px',
+                                padding: '3px 6px',
+                                borderRadius: '6px',
+                                backgroundColor: 'var(--bg-surface)',
+                                color: 'var(--text-secondary)',
+                                border: '1px solid var(--border-subtle)',
+                                outline: 'none',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <option value="character">Character</option>
+                              <option value="location">Location</option>
+                              <option value="lore">Lore & World</option>
+                              <option value="item">Item & Artifact</option>
+                              <option value="faction">Faction & Order</option>
+                            </select>
+                          </div>
                         </div>
+
+                        {/* Subtitle / Role & Wiki Tag */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                          <input
+                            value={activeEntry.role || ''}
+                            onChange={(e) => onUpdateLore({ ...activeEntry, role: e.target.value })}
+                            placeholder={`Role / Subtitle (e.g. ${
+                              activeEntry.category === 'character' ? 'Crown Princess' :
+                              activeEntry.category === 'location' ? 'Ancient Capital' :
+                              activeEntry.category === 'lore' ? 'Arcane Axiom' :
+                              activeEntry.category === 'item' ? 'Legendary Blade' :
+                              'Knightly Order'
+                            })...`}
+                            style={{
+                              fontSize: '13px',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border-subtle)',
+                              backgroundColor: 'var(--bg-surface)',
+                              color: 'var(--text-primary)',
+                              outline: 'none',
+                              width: '260px',
+                            }}
+                          />
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                            <span>Wiki tag:</span>
+                            <code style={{
+                              fontFamily: 'var(--font-mono)',
+                              color: activeConfig.color,
+                              backgroundColor: activeConfig.bgLight,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                            }}>
+                              [[{activeEntry.slug}|{activeEntry.name}]]
+                            </code>
+                          </div>
+                        </div>
+
+                        {/* Quick URL input box for portrait if active */}
+                        {isEnteringPortraitUrl && (
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginTop: '10px',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            backgroundColor: 'var(--bg-surface)',
+                            border: `1px solid ${activeConfig.color}`,
+                          }}>
+                            <ImageIcon size={13} color={activeConfig.color} />
+                            <input
+                              type="url"
+                              value={portraitUrlInput}
+                              onChange={(e) => setPortraitUrlInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleApplyPortraitUrl();
+                                }
+                              }}
+                              placeholder="Paste image web URL (https://...)..."
+                              style={{
+                                flex: 1,
+                                border: 'none',
+                                backgroundColor: 'transparent',
+                                color: 'var(--text-primary)',
+                                fontSize: '12px',
+                                outline: 'none',
+                              }}
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={handleApplyPortraitUrl}
+                              style={{
+                                padding: '3px 10px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                borderRadius: '4px',
+                                border: 'none',
+                                backgroundColor: activeConfig.color,
+                                color: '#fff',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Attach
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsEnteringPortraitUrl(false);
+                                setPortraitUrlInput('');
+                              }}
+                              style={{
+                                padding: '3px 8px',
+                                fontSize: '11px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--border-subtle)',
+                                backgroundColor: 'transparent',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        )}
+
+                        {imageError && (
+                          <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '6px' }}>
+                            {imageError}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -882,6 +1293,26 @@ export const CodexView: React.FC<CodexViewProps> = ({
                     >
                       <Layers size={14} color={elementTab === 'profile' ? activeConfig.color : 'var(--text-muted)'} />
                       <span>Dedicated Attributes</span>
+                    </button>
+
+                    <button
+                      onClick={() => setElementTab('visuals')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 14px',
+                        border: 'none',
+                        borderBottom: elementTab === 'visuals' ? `2px solid ${activeConfig.color}` : '2px solid transparent',
+                        backgroundColor: 'transparent',
+                        color: elementTab === 'visuals' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        fontWeight: elementTab === 'visuals' ? 600 : 400,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <ImageIcon size={14} color={elementTab === 'visuals' ? activeConfig.color : 'var(--text-muted)'} />
+                      <span>Visuals & Gallery ({((activeEntry.gallery?.length || 0) + (activeEntry.imageUrl && !activeEntry.gallery?.some(g => g.url === activeEntry.imageUrl) ? 1 : 0))})</span>
                     </button>
 
                     <button
@@ -1175,6 +1606,682 @@ export const CodexView: React.FC<CodexViewProps> = ({
                             );
                           })}
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-TAB: VISUALS & CONCEPT ART GALLERY */}
+                  {elementTab === 'visuals' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                      {/* Hidden File Input for Gallery */}
+                      <input
+                        ref={galleryFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleUploadGalleryFile}
+                        style={{ display: 'none' }}
+                      />
+
+                      {/* Primary Portrait Card */}
+                      <div style={{
+                        padding: '20px',
+                        backgroundColor: 'var(--bg-surface)',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        gap: '24px',
+                        alignItems: 'flex-start',
+                      }}>
+                        {/* Primary Image Preview */}
+                        <div style={{
+                          width: '220px',
+                          height: '220px',
+                          borderRadius: '8px',
+                          border: `2px solid ${activeConfig.color}`,
+                          backgroundColor: activeConfig.bgLight,
+                          overflow: 'hidden',
+                          flexShrink: 0,
+                          position: 'relative',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}>
+                          {activeEntry.imageUrl ? (
+                            <img
+                              src={activeEntry.imageUrl}
+                              alt={activeEntry.name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                              onClick={() => {
+                                setLightboxIndex(0);
+                                setLightboxOpen(true);
+                              }}
+                              title="Click to view full image in lightbox"
+                            />
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: activeConfig.color, textAlign: 'center', padding: '16px' }}>
+                              {getCategoryIcon(activeEntry.category, 42)}
+                              <span style={{ fontSize: '12px', fontWeight: 600 }}>No Primary Portrait</span>
+                              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Upload an image below to set the official portrait</span>
+                            </div>
+                          )}
+
+                          {activeEntry.imageUrl && (
+                            <div
+                              onClick={() => {
+                                setLightboxIndex(0);
+                                setLightboxOpen(true);
+                              }}
+                              style={{
+                                position: 'absolute',
+                                bottom: '8px',
+                                right: '8px',
+                                backgroundColor: 'rgba(0,0,0,0.7)',
+                                color: '#fff',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <Maximize2 size={12} />
+                              <span>Expand</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Primary Info & Actions */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                              <span style={{
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                padding: '2px 8px',
+                                borderRadius: '10px',
+                                backgroundColor: activeConfig.bgLight,
+                                color: activeConfig.color,
+                                border: `1px solid ${activeConfig.borderLight}`,
+                              }}>
+                                Primary Visual
+                              </span>
+                              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                Official canon depiction
+                              </span>
+                            </div>
+
+                            <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>
+                              {activeEntry.name}
+                            </h3>
+
+                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 16px' }}>
+                              This primary visual is automatically represented across InxWrite in the Obsidian-style node graph canvas, character inspector HUD, manuscript @mention popups, and quick search.
+                            </p>
+                          </div>
+
+                          {/* Action Buttons for Primary Art */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                onClick={() => portraitFileInputRef.current?.click()}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '7px 14px',
+                                  borderRadius: '6px',
+                                  backgroundColor: activeConfig.color,
+                                  color: '#fff',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  boxShadow: `0 2px 6px ${activeConfig.bgLight}`,
+                                }}
+                              >
+                                <Upload size={13} />
+                                <span>{activeEntry.imageUrl ? 'Replace Portrait' : 'Upload Portrait File'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setIsEnteringPortraitUrl((prev) => !prev)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '7px 14px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-subtle)',
+                                  backgroundColor: 'var(--bg-app)',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '12px',
+                                  fontWeight: 500,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <Link2 size={13} />
+                                <span>Link Web Image</span>
+                              </button>
+
+                              {activeEntry.imageUrl && (
+                                <button
+                                  type="button"
+                                  onClick={handleRemovePortrait}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '7px 12px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #fecaca',
+                                    backgroundColor: 'transparent',
+                                    color: '#dc2626',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                  }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
+                                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                >
+                                  <Trash2 size={13} />
+                                  <span>Remove Portrait</span>
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Inline URL form */}
+                            {isEnteringPortraitUrl && (
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                backgroundColor: 'var(--bg-app)',
+                                border: `1px solid ${activeConfig.color}`,
+                              }}>
+                                <ImageIcon size={14} color={activeConfig.color} />
+                                <input
+                                  type="url"
+                                  value={portraitUrlInput}
+                                  onChange={(e) => setPortraitUrlInput(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleApplyPortraitUrl();
+                                    }
+                                  }}
+                                  placeholder="Paste image web URL (https://...)..."
+                                  style={{
+                                    flex: 1,
+                                    border: 'none',
+                                    backgroundColor: 'transparent',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '12px',
+                                    outline: 'none',
+                                  }}
+                                  autoFocus
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleApplyPortraitUrl}
+                                  style={{
+                                    padding: '4px 10px',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    borderRadius: '4px',
+                                    border: 'none',
+                                    backgroundColor: activeConfig.color,
+                                    color: '#fff',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  Attach
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsEnteringPortraitUrl(false);
+                                    setPortraitUrlInput('');
+                                  }}
+                                  style={{
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    borderRadius: '4px',
+                                    border: '1px solid var(--border-subtle)',
+                                    backgroundColor: 'transparent',
+                                    color: 'var(--text-muted)',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+
+                            {imageError && (
+                              <div style={{ fontSize: '11px', color: '#dc2626' }}>
+                                {imageError}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Reference Art & Concept Gallery Section */}
+                      <div>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: '14px',
+                        }}>
+                          <div>
+                            <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 3px' }}>
+                              Concept Art, Maps & Reference Gallery ({activeEntry.gallery?.length || 0})
+                            </h4>
+                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
+                              Visual references, moodboard clippings, costume studies, and environmental sketches.
+                            </p>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button
+                              type="button"
+                              onClick={() => galleryFileInputRef.current?.click()}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-subtle)',
+                                backgroundColor: 'var(--bg-surface)',
+                                color: 'var(--text-primary)',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <Upload size={13} color={activeConfig.color} />
+                              <span>Upload Reference</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setIsAddingGalleryUrl((prev) => !prev)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-subtle)',
+                                backgroundColor: 'var(--bg-surface)',
+                                color: 'var(--text-secondary)',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <Link2 size={13} />
+                              <span>Add Web Link</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Add via URL Form if active */}
+                        {isAddingGalleryUrl && (
+                          <div style={{
+                            padding: '14px',
+                            backgroundColor: 'var(--bg-surface)',
+                            border: `1px solid ${activeConfig.color}`,
+                            borderRadius: '8px',
+                            marginBottom: '16px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
+                          }}>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                              Add Web Image to Reference Gallery
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                              <input
+                                type="url"
+                                value={galleryUrlInput}
+                                onChange={(e) => setGalleryUrlInput(e.target.value)}
+                                placeholder="Image web URL (https://...)..."
+                                style={{
+                                  flex: 2,
+                                  minWidth: '240px',
+                                  padding: '7px 10px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-subtle)',
+                                  backgroundColor: 'var(--bg-app)',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '12px',
+                                  outline: 'none',
+                                }}
+                                autoFocus
+                              />
+                              <input
+                                type="text"
+                                value={galleryCaptionInput}
+                                onChange={(e) => setGalleryCaptionInput(e.target.value)}
+                                placeholder="Caption (e.g. 'Castle Gate at Sunset', 'Early armor concept')..."
+                                style={{
+                                  flex: 2,
+                                  minWidth: '200px',
+                                  padding: '7px 10px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-subtle)',
+                                  backgroundColor: 'var(--bg-app)',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '12px',
+                                  outline: 'none',
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={handleApplyGalleryUrl}
+                                style={{
+                                  padding: '7px 16px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  backgroundColor: activeConfig.color,
+                                  color: '#fff',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Add to Gallery
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsAddingGalleryUrl(false);
+                                  setGalleryUrlInput('');
+                                  setGalleryCaptionInput('');
+                                }}
+                                style={{
+                                  padding: '7px 12px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-subtle)',
+                                  backgroundColor: 'transparent',
+                                  color: 'var(--text-muted)',
+                                  fontSize: '12px',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Gallery Grid */}
+                        {activeEntry.gallery && activeEntry.gallery.length > 0 ? (
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+                            gap: '16px',
+                          }}>
+                            {activeEntry.gallery.map((item, idx) => {
+                              const isPrimary = activeEntry.imageUrl === item.url;
+                              // Match index in allImagesForLightbox
+                              const lightboxIdx = allImagesForLightbox.findIndex((img) => img.url === item.url);
+
+                              return (
+                                <div
+                                  key={item.id}
+                                  style={{
+                                    backgroundColor: 'var(--bg-surface)',
+                                    borderRadius: '8px',
+                                    border: isPrimary ? `2px solid ${activeConfig.color}` : '1px solid var(--border-subtle)',
+                                    overflow: 'hidden',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    boxShadow: 'var(--shadow-sm)',
+                                    position: 'relative',
+                                  }}
+                                >
+                                  {/* Image Container with Hover Controls */}
+                                  <div
+                                    style={{
+                                      height: '160px',
+                                      width: '100%',
+                                      position: 'relative',
+                                      overflow: 'hidden',
+                                      backgroundColor: 'var(--bg-app)',
+                                      cursor: 'pointer',
+                                    }}
+                                    onClick={() => {
+                                      setLightboxIndex(lightboxIdx >= 0 ? lightboxIdx : 0);
+                                      setLightboxOpen(true);
+                                    }}
+                                  >
+                                    <img
+                                      src={item.url}
+                                      alt={item.caption || `${activeEntry.name} art`}
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+
+                                    {/* Primary Badge */}
+                                    {isPrimary && (
+                                      <div style={{
+                                        position: 'absolute',
+                                        top: '8px',
+                                        left: '8px',
+                                        backgroundColor: activeConfig.color,
+                                        color: '#fff',
+                                        fontSize: '10px',
+                                        fontWeight: 700,
+                                        padding: '2px 7px',
+                                        borderRadius: '4px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                                      }}>
+                                        <Star size={10} fill="#fff" />
+                                        <span>PRIMARY</span>
+                                      </div>
+                                    )}
+
+                                    {/* Action overlay */}
+                                    <div
+                                      style={{
+                                        position: 'absolute',
+                                        top: '8px',
+                                        right: '8px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {!isPrimary && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSetAsPrimaryImage(item.url)}
+                                          title="Set as Main Portrait"
+                                          style={{
+                                            padding: '5px',
+                                            borderRadius: '4px',
+                                            backgroundColor: 'rgba(0,0,0,0.65)',
+                                            color: '#fff',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                          }}
+                                        >
+                                          <Star size={13} />
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteGalleryImage(item.id)}
+                                        title="Delete from Gallery"
+                                        style={{
+                                          padding: '5px',
+                                          borderRadius: '4px',
+                                          backgroundColor: 'rgba(0,0,0,0.65)',
+                                          color: '#f87171',
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          display: 'flex',
+                                        }}
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Caption Editor */}
+                                  <div style={{ padding: '10px' }}>
+                                    <input
+                                      value={item.caption || ''}
+                                      onChange={(e) => handleUpdateGalleryCaption(item.id, e.target.value)}
+                                      placeholder="Add caption or note..."
+                                      style={{
+                                        width: '100%',
+                                        fontSize: '11px',
+                                        padding: '4px 6px',
+                                        borderRadius: '4px',
+                                        border: '1px solid transparent',
+                                        backgroundColor: 'transparent',
+                                        color: 'var(--text-primary)',
+                                        outline: 'none',
+                                        boxSizing: 'border-box',
+                                      }}
+                                      onFocus={(e) => {
+                                        e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                                        e.currentTarget.style.backgroundColor = 'var(--bg-app)';
+                                      }}
+                                      onBlur={(e) => {
+                                        e.currentTarget.style.borderColor = 'transparent';
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+
+                            {/* Additional Upload Card in Grid */}
+                            <div
+                              onClick={() => galleryFileInputRef.current?.click()}
+                              style={{
+                                height: '210px',
+                                borderRadius: '8px',
+                                border: '1.5px dashed var(--border-subtle)',
+                                backgroundColor: 'transparent',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = activeConfig.color;
+                                e.currentTarget.style.color = activeConfig.color;
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                                e.currentTarget.style.color = 'var(--text-muted)';
+                              }}
+                            >
+                              <Plus size={24} />
+                              <span style={{ fontSize: '12px', fontWeight: 600 }}>Add Reference Art</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{
+                            padding: '36px 20px',
+                            borderRadius: '8px',
+                            border: '1.5px dashed var(--border-subtle)',
+                            backgroundColor: 'var(--bg-surface)',
+                            textAlign: 'center',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '12px',
+                          }}>
+                            <div style={{
+                              width: '46px',
+                              height: '46px',
+                              borderRadius: '50%',
+                              backgroundColor: activeConfig.bgLight,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: activeConfig.color,
+                            }}>
+                              <ImageIcon size={22} />
+                            </div>
+
+                            <div>
+                              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '3px' }}>
+                                No Reference Visuals or Concept Art Yet
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', maxWidth: '420px', margin: '0 auto' }}>
+                                Add character sketches, location maps, faction banners, or item blueprints to build a visual storyboard for {activeEntry.name}.
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={() => galleryFileInputRef.current?.click()}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '6px 14px',
+                                  borderRadius: '6px',
+                                  backgroundColor: activeConfig.color,
+                                  color: '#fff',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <Upload size={13} />
+                                <span>Upload Images</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setIsAddingGalleryUrl(true)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '6px 14px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-subtle)',
+                                  backgroundColor: 'var(--bg-app)',
+                                  color: 'var(--text-secondary)',
+                                  fontSize: '12px',
+                                  fontWeight: 500,
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <Link2 size={13} />
+                                <span>Paste Image Link</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1831,6 +2938,24 @@ export const CodexView: React.FC<CodexViewProps> = ({
         isOpen={isNewModalOpen}
         onClose={() => setIsNewModalOpen(false)}
         onCreate={handleCreateEntry}
+      />
+
+      {/* Fullscreen Image Lightbox Modal */}
+      <ImageLightboxModal
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        images={allImagesForLightbox}
+        initialIndex={lightboxIndex}
+        entityName={activeEntry?.name}
+        onSetAsPrimary={handleSetAsPrimaryImage}
+        onDeleteImage={(imgId) => {
+          if (imgId === 'primary') {
+            handleRemovePortrait();
+          } else {
+            handleDeleteGalleryImage(imgId);
+          }
+        }}
+        currentPrimaryUrl={activeEntry?.imageUrl}
       />
     </div>
   );

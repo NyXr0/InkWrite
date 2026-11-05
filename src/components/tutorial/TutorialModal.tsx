@@ -24,7 +24,8 @@ import {
   HelpCircle,
   FolderTree,
   Type,
-  Bookmark
+  Bookmark,
+  Image as ImageIcon
 } from 'lucide-react';
 import { MainView } from '../../types/project';
 
@@ -378,6 +379,11 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
           title: 'Manuscript Reality Scanner',
           description: 'Scans all novel scenes in real time for element mentions, showing match snippets and 1-click jumps directly to the text.',
           icon: <Search size={16} color="#10b981" />,
+        },
+        {
+          title: 'Visual Art, Portraits & Reference Galleries',
+          description: 'Attach character portraits, location maps, moodboards, and concept galleries with client-side compression and a fullscreen Lightbox.',
+          icon: <ImageIcon size={16} color="#ec4899" />,
         },
       ],
       shortcutOrTip: {

@@ -74,6 +74,7 @@ export const ObsidianNodeGraph: React.FC<ObsidianNodeGraphProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
 
   // Viewport navigation state (Pan & Zoom)
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
@@ -463,14 +464,45 @@ export const ObsidianNodeGraph: React.FC<ObsidianNodeGraphProps> = ({
         ctx.fill();
       }
 
-      // Outer circle border
+      // Outer circle fill
       ctx.beginPath();
       ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
       ctx.fillStyle = node.color;
       ctx.fill();
 
-      ctx.strokeStyle = isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.4)';
-      ctx.lineWidth = isSelected ? 3 : 1.5;
+      // Draw portrait inside node if available
+      const imgUrl = node.loreEntry?.imageUrl;
+      let hasImage = false;
+      if (imgUrl) {
+        let cached = imageCacheRef.current.get(imgUrl);
+        if (!cached) {
+          cached = new Image();
+          cached.src = imgUrl;
+          cached.onload = () => {
+            // Trigger redrawing when loaded
+            requestAnimationFrame(draw);
+          };
+          imageCacheRef.current.set(imgUrl, cached);
+        }
+        if (cached.complete && cached.naturalWidth > 0) {
+          hasImage = true;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(
+            cached,
+            node.x - node.radius,
+            node.y - node.radius,
+            node.radius * 2,
+            node.radius * 2
+          );
+          ctx.restore();
+        }
+      }
+
+      ctx.strokeStyle = isSelected ? '#ffffff' : (hasImage ? node.color : 'rgba(255, 255, 255, 0.4)');
+      ctx.lineWidth = isSelected ? 3 : (hasImage ? 2 : 1.5);
       ctx.stroke();
 
       // Node Label
@@ -1028,24 +1060,43 @@ export const ObsidianNodeGraph: React.FC<ObsidianNodeGraphProps> = ({
         }}>
           {/* Header with Close */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '26px',
-                height: '26px',
-                borderRadius: '6px',
-                backgroundColor: `${activeNode.color}20`,
-                border: `1px solid ${activeNode.color}50`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                {activeNode.category === 'character' && <User size={13} color={activeNode.color} />}
-                {activeNode.category === 'location' && <MapPin size={13} color={activeNode.color} />}
-                {activeNode.category === 'lore' && <Sparkles size={13} color={activeNode.color} />}
-                {activeNode.category === 'item' && <Package size={13} color={activeNode.color} />}
-                {activeNode.category === 'faction' && <Shield size={13} color={activeNode.color} />}
-                {activeNode.category === 'scene' && <BookOpen size={13} color="#3b82f6" />}
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {activeNode.loreEntry?.imageUrl ? (
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  border: `2px solid ${activeNode.color}`,
+                  backgroundColor: 'var(--bg-app)',
+                  flexShrink: 0,
+                }}>
+                  <img
+                    src={activeNode.loreEntry.imageUrl}
+                    alt={activeNode.label}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                </div>
+              ) : (
+                <div style={{
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: '6px',
+                  backgroundColor: `${activeNode.color}20`,
+                  border: `1px solid ${activeNode.color}50`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  {activeNode.category === 'character' && <User size={15} color={activeNode.color} />}
+                  {activeNode.category === 'location' && <MapPin size={15} color={activeNode.color} />}
+                  {activeNode.category === 'lore' && <Sparkles size={15} color={activeNode.color} />}
+                  {activeNode.category === 'item' && <Package size={15} color={activeNode.color} />}
+                  {activeNode.category === 'faction' && <Shield size={15} color={activeNode.color} />}
+                  {activeNode.category === 'scene' && <BookOpen size={15} color="#3b82f6" />}
+                </div>
+              )}
 
               <div>
                 <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>

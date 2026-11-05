@@ -65,6 +65,13 @@ export type BinderNode = FolderItem | SceneItem;
 
 export type LoreCategory = 'character' | 'location' | 'faction' | 'item' | 'lore';
 
+export interface LoreImage {
+  id: string;
+  url: string; // Base64 data URL or external image URL
+  caption?: string;
+  dateAdded?: string;
+}
+
 export interface LoreEntry {
   id: string;
   slug: string;
@@ -76,6 +83,8 @@ export interface LoreEntry {
   relationships?: { to: string; type: string }[];
   aliases?: string[];
   attributes?: Record<string, string>;
+  imageUrl?: string;
+  gallery?: LoreImage[];
 }
 
 export interface TimelineEvent {

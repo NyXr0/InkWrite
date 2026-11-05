@@ -422,23 +422,41 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{
-                      width: '22px',
-                      height: '22px',
-                      borderRadius: '4px',
-                      backgroundColor: (CODEX_CATEGORIES[item.category] || CODEX_CATEGORIES.character).bgLight,
-                      border: `1px solid ${(CODEX_CATEGORIES[item.category] || CODEX_CATEGORIES.character).borderLight}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
-                      {item.category === 'character' && <User size={11} color={CODEX_CATEGORIES.character.color} />}
-                      {item.category === 'location' && <MapPin size={11} color={CODEX_CATEGORIES.location.color} />}
-                      {item.category === 'lore' && <Sparkles size={11} color={CODEX_CATEGORIES.lore.color} />}
-                      {item.category === 'item' && <Package size={11} color={CODEX_CATEGORIES.item.color} />}
-                      {item.category === 'faction' && <Shield size={11} color={CODEX_CATEGORIES.faction.color} />}
-                    </div>
+                    {item.imageUrl ? (
+                      <div style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '4px',
+                        overflow: 'hidden',
+                        border: `1.5px solid ${(CODEX_CATEGORIES[item.category] || CODEX_CATEGORIES.character).color}`,
+                        backgroundColor: 'var(--bg-app)',
+                        flexShrink: 0,
+                      }}>
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      </div>
+                    ) : (
+                      <div style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '4px',
+                        backgroundColor: (CODEX_CATEGORIES[item.category] || CODEX_CATEGORIES.character).bgLight,
+                        border: `1px solid ${(CODEX_CATEGORIES[item.category] || CODEX_CATEGORIES.character).borderLight}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        {item.category === 'character' && <User size={11} color={CODEX_CATEGORIES.character.color} />}
+                        {item.category === 'location' && <MapPin size={11} color={CODEX_CATEGORIES.location.color} />}
+                        {item.category === 'lore' && <Sparkles size={11} color={CODEX_CATEGORIES.lore.color} />}
+                        {item.category === 'item' && <Package size={11} color={CODEX_CATEGORIES.item.color} />}
+                        {item.category === 'faction' && <Shield size={11} color={CODEX_CATEGORIES.faction.color} />}
+                      </div>
+                    )}
                     <div>
                       <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-primary)' }}>
                         {item.name}

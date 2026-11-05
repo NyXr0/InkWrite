@@ -432,7 +432,21 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <User size={14} color={isSelected ? 'var(--accent-secondary)' : 'var(--text-muted)'} />
+                      {lore.imageUrl ? (
+                        <img
+                          src={lore.imageUrl}
+                          alt={lore.name}
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '4px',
+                            objectFit: 'cover',
+                            flexShrink: 0,
+                          }}
+                        />
+                      ) : (
+                        <User size={14} color={isSelected ? 'var(--accent-secondary)' : 'var(--text-muted)'} />
+                      )}
                       <span>{lore.category.toUpperCase()}: {lore.name}</span>
                     </div>
 

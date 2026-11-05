@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LoreCategory } from '../../types/project';
 import { CODEX_CATEGORIES } from '../../core/codexSchema';
+import { compressAndReadImageFile, isValidImageUrl } from '../../core/imageUtils';
 import { 
   User, 
   MapPin, 
@@ -9,13 +10,24 @@ import {
   Shield, 
   X, 
   ArrowRight,
-  Check
+  Check,
+  Image as ImageIcon,
+  Upload,
+  Link as LinkIcon,
+  Trash2
 } from 'lucide-react';
 
 interface NewCodexModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (category: LoreCategory, name: string, starterContent: string, attributes?: Record<string, string>, role?: string) => void;
+  onCreate: (
+    category: LoreCategory, 
+    name: string, 
+    starterContent: string, 
+    attributes?: Record<string, string>, 
+    role?: string,
+    imageUrl?: string
+  ) => void;
 }
 
 export const NewCodexModal: React.FC<NewCodexModalProps> = ({
@@ -25,15 +37,51 @@ export const NewCodexModal: React.FC<NewCodexModalProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<LoreCategory>('character');
   const [name, setName] = useState<string>('');
+  const [imageUrl, setImageUrl] = useState<string>('');
+  const [isEnteringUrl, setIsEnteringUrl] = useState<boolean>(false);
+  const [urlInput, setUrlInput] = useState<string>('');
+  const [uploadError, setUploadError] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       setName('');
+      setImageUrl('');
+      setIsEnteringUrl(false);
+      setUrlInput('');
+      setUploadError('');
       setSelectedCategory('character');
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadError('');
+      const compressedDataUrl = await compressAndReadImageFile(file, 1200, 0.85);
+      setImageUrl(compressedDataUrl);
+      setIsEnteringUrl(false);
+    } catch (err) {
+      setUploadError('Failed to read image file. Please try another image.');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleApplyUrl = () => {
+    if (!urlInput.trim()) return;
+    if (isValidImageUrl(urlInput.trim())) {
+      setImageUrl(urlInput.trim());
+      setIsEnteringUrl(false);
+      setUrlInput('');
+      setUploadError('');
+    } else {
+      setUploadError('Please enter a valid image web URL or data URL.');
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -81,7 +129,7 @@ export const NewCodexModal: React.FC<NewCodexModalProps> = ({
     else if (selectedCategory === 'item') defaultRole = 'Ancient Relic';
     else if (selectedCategory === 'faction') defaultRole = 'Knightly Order';
 
-    onCreate(selectedCategory, finalName, starterContent, initialAttributes, defaultRole);
+    onCreate(selectedCategory, finalName, starterContent, initialAttributes, defaultRole, imageUrl.trim() || undefined);
     onClose();
   };
 
@@ -99,7 +147,7 @@ export const NewCodexModal: React.FC<NewCodexModalProps> = ({
     else if (catId === 'item') defaultRole = 'Ancient Relic';
     else if (catId === 'faction') defaultRole = 'Knightly Order';
 
-    onCreate(catId, finalName, starterContent, initialAttributes, defaultRole);
+    onCreate(catId, finalName, starterContent, initialAttributes, defaultRole, imageUrl.trim() || undefined);
     onClose();
   };
 
@@ -217,6 +265,239 @@ export const NewCodexModal: React.FC<NewCodexModalProps> = ({
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               />
+            </div>
+
+            {/* Optional Image / Artwork Upload */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  color: 'var(--text-muted)',
+                  margin: 0,
+                }}>
+                  <ImageIcon size={13} color={activeConfig.color} />
+                  <span>Portrait & Visual Art (Optional)</span>
+                </label>
+                {imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageUrl('');
+                      setIsEnteringUrl(false);
+                      setUrlInput('');
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '11px',
+                      color: '#dc2626',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    <Trash2 size={12} />
+                    <span>Remove Photo</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                style={{ display: 'none' }}
+              />
+
+              {imageUrl ? (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--bg-app)',
+                  border: `1.5px solid ${activeConfig.color}`,
+                }}>
+                  <div style={{
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    border: '1px solid var(--border-subtle)',
+                    flexShrink: 0,
+                    backgroundColor: '#000',
+                  }}>
+                    <img
+                      src={imageUrl}
+                      alt="Thumbnail preview"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' }}>
+                      Visual Attached
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                      Ready to be saved as the primary entity portrait and canon reference.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      padding: '5px 10px',
+                      fontSize: '11px',
+                      borderRadius: '5px',
+                      border: '1px solid var(--border-subtle)',
+                      backgroundColor: 'var(--bg-surface)',
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Replace
+                  </button>
+                </div>
+              ) : isEnteringUrl ? (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--bg-app)',
+                  border: '1px solid var(--border-subtle)',
+                }}>
+                  <LinkIcon size={14} color="var(--text-muted)" />
+                  <input
+                    type="url"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleApplyUrl();
+                      }
+                    }}
+                    placeholder="Paste image web link (https://...)..."
+                    style={{
+                      flex: 1,
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      color: 'var(--text-primary)',
+                      fontSize: '12px',
+                      outline: 'none',
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyUrl}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      borderRadius: '4px',
+                      border: 'none',
+                      backgroundColor: activeConfig.color,
+                      color: '#fff',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Attach
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEnteringUrl(false);
+                      setUrlInput('');
+                      setUploadError('');
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      borderRadius: '4px',
+                      border: '1px solid var(--border-subtle)',
+                      backgroundColor: 'transparent',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: '1px dashed var(--border-subtle)',
+                      backgroundColor: 'var(--bg-app)',
+                      color: 'var(--text-secondary)',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = activeConfig.color;
+                      e.currentTarget.style.color = 'var(--text-primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                      e.currentTarget.style.color = 'var(--text-secondary)';
+                    }}
+                  >
+                    <Upload size={14} color={activeConfig.color} />
+                    <span>Upload Image File</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsEnteringUrl(true)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 14px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-subtle)',
+                      backgroundColor: 'var(--bg-app)',
+                      color: 'var(--text-secondary)',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <LinkIcon size={13} />
+                    <span>Link URL</span>
+                  </button>
+                </div>
+              )}
+
+              {uploadError && (
+                <div style={{ fontSize: '11px', color: '#dc2626', marginTop: '6px' }}>
+                  {uploadError}
+                </div>
+              )}
             </div>
 
             {/* Category Selector List */}

@@ -6,6 +6,7 @@ import {
   SceneItem, 
   FolderItem, 
   LoreEntry, 
+  LoreImage,
   SceneStatus,
   LoreCategory,
   TimelineEvent 
@@ -596,7 +597,9 @@ export const App: React.FC = () => {
     name?: string, 
     content?: string,
     attributes?: Record<string, string>,
-    role?: string
+    role?: string,
+    imageUrl?: string,
+    gallery?: LoreImage[]
   ): string => {
     const defaultName = name?.trim() || `New ${category.charAt(0).toUpperCase() + category.slice(1)}`;
     const newId = `lore-${Date.now()}`;
@@ -611,6 +614,8 @@ export const App: React.FC = () => {
       attributes: attributes || {},
       relationships: [],
       aliases: [],
+      imageUrl: imageUrl || undefined,
+      gallery: gallery || [],
     };
 
     updateActiveProject((prev) => ({

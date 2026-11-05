@@ -132,19 +132,37 @@ export const LoreTagPopup: React.FC<LoreTagPopupProps> = ({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '5px',
-                  backgroundColor: config.bgLight,
-                  border: `1px solid ${config.borderLight}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}>
-                  {getCategoryIcon(item.category)}
-                </div>
+                {item.imageUrl ? (
+                  <div style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '5px',
+                    overflow: 'hidden',
+                    border: `1.5px solid ${config.color}`,
+                    flexShrink: 0,
+                    backgroundColor: 'var(--bg-app)',
+                  }}>
+                    <img
+                      src={item.imageUrl}
+                      alt={item.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '5px',
+                    backgroundColor: config.bgLight,
+                    border: `1px solid ${config.borderLight}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    {getCategoryIcon(item.category)}
+                  </div>
+                )}
                 <div style={{ overflow: 'hidden' }}>
                   <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                     {item.name}

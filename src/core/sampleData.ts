@@ -167,6 +167,24 @@ export const initialProjectData: ProjectData = {
         { to: 'Iven', type: 'Father' },
       ],
       aliases: ['Mara', 'The Cartographer'],
+      imageUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
+      gallery: [
+        {
+          id: 'img-mara-1',
+          url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
+          caption: 'Mara Venn official character portrait',
+        },
+        {
+          id: 'img-mara-2',
+          url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+          caption: 'Salt marshes at twilight - navigation chart territory',
+        },
+        {
+          id: 'img-mara-3',
+          url: 'https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=600&q=80',
+          caption: 'The brass navigational compass stamped with the royal crest',
+        },
+      ],
     },
     {
       id: 'lore-2',
@@ -180,6 +198,14 @@ export const initialProjectData: ProjectData = {
         { to: 'Mara Venn', type: 'Pursuer' },
       ],
       aliases: ['Cassian Vane', 'The Magistrate'],
+      imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+      gallery: [
+        {
+          id: 'img-harbour-1',
+          url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80',
+          caption: 'Lord Cassian Vane, Magistrate of the Crown',
+        },
+      ],
     },
     {
       id: 'lore-3',
@@ -190,6 +216,14 @@ export const initialProjectData: ProjectData = {
       summary: 'Fortified tidal basin and main port of entry on the eastern estuary.',
       content: `### Salt Gate Harbour\n\nThe central setting for Part I. The gates are shut during the spring tidal surges. Ringed by drying-sheds, salt pans, and stone wharves.`,
       aliases: ['Salt Gate', 'The Gates'],
+      imageUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+      gallery: [
+        {
+          id: 'img-salt-1',
+          url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+          caption: 'The outer tidal breakwater and stone wharves at sunset',
+        },
+      ],
     },
     {
       id: 'lore-4',
@@ -199,6 +233,7 @@ export const initialProjectData: ProjectData = {
       role: 'Location',
       summary: 'The muddy strip of taverns, coopers, and chandlers facing the low quay.',
       content: `### Harbour Row\n\nNarrow street smelling of tar, fermented herring, and wet wool. Houses the Black Dog Inn and Snape's cooperage.`,
+      imageUrl: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=800&q=80',
     },
     {
       id: 'lore-5',
@@ -208,6 +243,7 @@ export const initialProjectData: ProjectData = {
       role: 'Festival',
       summary: 'Annual harvest festival when the salt carts depart for the capital.',
       content: `### Harrow Tide\n\nCelebrated at the autumn equinox. Bonfires of driftwood line the quays, and fishermen pay symbolic tithes to the Sea Warden.`,
+      imageUrl: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=800&q=80',
     },
     {
       id: 'lore-6',
@@ -217,6 +253,7 @@ export const initialProjectData: ProjectData = {
       role: 'Ally / Informant',
       summary: 'Veteran cooper on Harbour Row who hides forbidden maps in cask staves.',
       content: `### Snape\n\nOld family friend of Iven Venn. His hands are perpetually stained with pine pitch.`,
+      imageUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80',
     },
   ],
   timeline: [
